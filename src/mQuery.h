@@ -181,6 +181,9 @@ typedef struct {
 	/*boolean to activate rerouting module*/
 	int rer_active;
 	
+	/*Collision-Direct-FlightLevel Output File*/
+	char output_CDF[100];
+	
 } CONF_t ;
 
 /********************************** FUNCTION *************************************/
@@ -203,6 +206,8 @@ int get_configuration(char *,CONF_t *);
 int get_temp_shock(CONF_t *);
 
 int add_nsim_output(char *,char *,int);
+
+int collision_counter(char *,CONF_t *);
 
 /*Get the capacity for each sector*/
 int get_capacity(char *,CONF_t *);

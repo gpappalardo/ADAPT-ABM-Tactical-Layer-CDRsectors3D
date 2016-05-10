@@ -389,6 +389,42 @@ int add_nsim_output(char *file_out,char *file_in, int n){
 	
 }
 
+int collision_counter(char *file_output,CONF_t *c){
+	int i;
+	for(i=0;file_output[i]!='.';i++) (*c).output_CDF[i] = file_output[i];
+	
+	strcat((*c).output_CDF,"_Counter.dat");
+	
+	FILE *wstream = fopen((*c).output_CDF,"w");
+	if(wstream==NULL) BuG("No Counter File\n");
+	fclose(wstream);
+	
+	return 1;
+	
+}
+
+int print_operation(long double *point ,long double tp,int idf,char *typ,CONF_t cnf){
+	FILE *wstream = fopen(cnf.output_CDF,"a");
+	if(wstream==NULL) BuG("Counter file is no more there\n");
+	
+	time_t pT;
+	struct tm pTm={0};
+	char buff[100];
+	
+				
+	pT = (time_t) tp;
+	localtime_r(&pT, &pTm);
+	
+	strftime(buff,100,"%Y-%m-%d %H:%M:%S",&pTm);
+	
+	fprintf(wstream,"%s\t%s\t(%Lf,%Lf)\t%d\n",typ,buff,point[0],point[1],idf);
+	
+	fclose(wstream);
+	
+	return 1;
+}
+		
+
 
 int get_capacity(char *file_r,CONF_t *conf){
 	

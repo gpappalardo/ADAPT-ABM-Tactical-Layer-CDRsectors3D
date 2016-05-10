@@ -1112,7 +1112,8 @@ int _reroute(Aircraft_t *f,Aircraft_t *flight,int N_f,SHOCK_t sh,CONF_t conf, TO
 		
 			/*if solved*/
 			if(solved==0) {
-
+				print_operation((*f).nvp[(*f).st_indx-1],(*f).time[(*f).st_indx-1],(*f).ID,'R',conf);
+		
 				_position(f , (*f).st_point , conf.t_d, conf.t_i, conf.t_r, dV);
 				
 				for(i=0;i<(*f).n_nvp;i++) for(j=0;j<DPOS;j++) old_nvp[i][j] = (*f).nvp[i][j];
@@ -1218,12 +1219,16 @@ int _change_flvl(Aircraft_t *f,Aircraft_t **flight,int N_f,CONF_t conf,TOOL_f tl
 
 	/*It tries first +20FL*/
 	if(!_try_flvl(f,flight,N_f,conf,tl,sh,f_lvl_on+20.,unsafe,endp,t)){
+		print_operation((*f).nvp[(*f).st_indx-1],(*f).time[(*f).st_indx-1],(*f).ID,'H',conf);
+		
 		free(h);
 		(*f).touched = 1;
 		return 0;
 	 }
 	 /*if it does not work, ti tries -20FL*/
 	if(!_try_flvl(f,flight,N_f,conf,tl,sh,f_lvl_on-20.,unsafe,endp,t)) {
+		print_operation((*f).nvp[(*f).st_indx-1],(*f).time[(*f).st_indx-1],(*f).ID,'H',conf);
+		
 		free(h);
 		(*f).touched = 1;
 		return 0;
@@ -1351,7 +1356,7 @@ int _give_direct(Aircraft_t *f,Aircraft_t *flight, int N_f,SHOCK_t sh, Aircraft_
 	_checkShockareaRoute((*Fbk).pos,(*conf).t_d, sh,(*tl).dist,tt);
 	
 	/*if it will involved in a conflict try a suboptimal*/
-	if(_check_risk((*tl).dist,(*conf),(*conf).t_d,(*f).tp)) {
+	if((*conf).rer_active==1) if(_check_risk((*tl).dist,(*conf),(*conf).t_d,(*f).tp)) {
 		//_backup_flight(f,Fbk);
 		return 0;	
 	}
@@ -1463,12 +1468,9 @@ int _ang_direct(Aircraft_t *f,Aircraft_t *flight,int N_f,CONF_t conf, TOOL_f tl,
 	int prev_sec = (int) (*f).nvp[(*f).st_indx][4];
 	int next_sec; 
 	
-	//~ plot_nvp_and_pos(*f,conf);
-	//~ int mynull;
-	//~ printf("\nPRE: st %d long %d\topt %d\n",(*f).st_indx,longest_direct,opt);
-	//~ scanf("%d",&mynull);
-	//~ 
 	if(_give_direct(f,flight, N_f,sh, &Fbk , opt,&conf,&tl,tt)==1){
+		print_operation((*f).nvp[(*f).st_indx],(*f).time[(*f).st_indx],(*f).ID,'D',conf);
+		
 		// Add First Nvp in the next sector
 		add_fist_nvpInSec(f,&conf,sec);
 
@@ -1479,12 +1481,7 @@ int _ang_direct(Aircraft_t *f,Aircraft_t *flight,int N_f,CONF_t conf, TOOL_f tl,
 		
 		return 1;
 	}
-	//~ else{ // NO DIRECT (TO REMOVE)
-		//~ (Fbk).n_nvp = old_nvp;
-		//~ _del_backup_flight(&Fbk,&conf);
-		//~ _del_pos(&Fbk,&conf);
-		//~ return(0);	
-	//~ }
+
 	//Per ogni target inferiore all ottimo
 	int target, sub_opt;
 	long double sA;
@@ -1505,7 +1502,8 @@ int _ang_direct(Aircraft_t *f,Aircraft_t *flight,int N_f,CONF_t conf, TOOL_f tl,
 		
 
 		if(_give_direct(f,flight, N_f,sh, &Fbk , sub_opt,&conf,&tl,tt)==1){	
-
+			print_operation((*f).nvp[(*f).st_indx],(*f).time[(*f).st_indx],(*f).ID,'D',conf);
+		
 			add_fist_nvpInSec(f,&conf,sec);
 
 			(Fbk).n_nvp = old_nvp;
