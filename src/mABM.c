@@ -198,6 +198,8 @@ int _init_tool(TOOL_f *t,int N, CONF_t conf){
 	(*t).F = (Aircraft_t*) malloc(N*sizeof(Aircraft_t));
 	if( (*t).F==NULL) BuG("No Memory\n");
 	
+	(*t).l_ready = ialloc_vec(N);
+	
 	return 1;
 }
 
@@ -215,6 +217,7 @@ int _del_tool(TOOL_f *t,int N,CONF_t conf){
 	#endif
 	
 	free((*t).F);
+	free((*t).l_ready);
 	
 	return 1;
 }
@@ -256,9 +259,12 @@ int _nvp_to_close(long double *d,long double *t_c,long double *vel,long double d
 
 long double _f_dist(int t,CONF_t *conf){
 	/*Function for increasing the safaty distance with time*/
-	return pow(t*(*conf).t_i,1) * (*conf).noise_d_thr;
+	//return pow(t*(*conf).t_i,1) * (*conf).noise_d_thr;
 	
+	return (t*(*conf).t_i)*((*conf).noise_d_thr-(*conf).d_thr)/900.;
 }
+
+
 
 /*Calculate the Position Array in the time-step . Return Zero if the Aircraft will land in the current timestep.*/
 int _position(Aircraft_t *f,long double *st_point, int t_wind, long double time_step, long double t_r, long double dV){
@@ -464,7 +470,7 @@ int _laplacian_change_vel(Aircraft_t **f,int N_f){
 	//~ return 1;
 //~ }
 
-int _sort_ready(Aircraft_t **f,TOOL_f *tl, int N_f){
+int _sort_ready_old(Aircraft_t **f,TOOL_f *tl, int N_f){
 	int i;
 	
 	int i_r = 0;
@@ -486,6 +492,27 @@ int _sort_ready(Aircraft_t **f,TOOL_f *tl, int N_f){
 	
 	return 1;
 }
+
+
+int _sort_ready(Aircraft_t **f,TOOL_f *tl, int N_f, int n_f){
+	
+	
+	
+	int i,j;
+	Aircraft_t comodo;
+	
+	for(i=0,j=0;i<n_f;i++){
+		if((*tl).l_ready[i]<n_f) continue;
+		while((*f)[j].ready==1) j++;
+		comodo = (*f)[j];
+		(*f)[j] = (*f)[(*tl).l_ready[i]];
+		(*f)[(*tl).l_ready[i]] = comodo;
+	}
+
+	
+	return 1;
+}
+
 
 int _set_st_point(Aircraft_t **f,int N_f,CONF_t conf){
 	
@@ -660,6 +687,8 @@ int _get_ready(Aircraft_t **f, TOOL_f *tl, int N_f,long double t,CONF_t conf){
 	/* Time step */
 	long double t_stp=(conf.t_r*conf.t_w*conf.t_i);
 
+	int n_f=0;
+
 	/* For each flight */
 	for(i=0;i<N_f;i++) {
 		/* if it is not fliyng*/
@@ -668,6 +697,8 @@ int _get_ready(Aircraft_t **f, TOOL_f *tl, int N_f,long double t,CONF_t conf){
 			if( (*f)[i].time[0]>=t&& (*f)[i].time[0]< (t+t_stp) )  {
 				 // set ready flag
 				(*f)[i].ready=1;
+				(*tl).l_ready[n_f++] = i;
+				
 				 /*evalute the shift from the first time-increment of the current time-step*/
 				(*f)[i].tp = ((*f)[i].time[0]-t)/conf.t_i;
 				/*Set the pointer to the second nvp of the flight*/
@@ -676,15 +707,17 @@ int _get_ready(Aircraft_t **f, TOOL_f *tl, int N_f,long double t,CONF_t conf){
 				for(j=0;j<DPOS;j++) (*f)[i].st_point[j] = (*f)[i].nvp[0][j];
 			}
 		}
-		else (*f)[i].tp = 0;
+		else {
+			(*f)[i].tp = 0;
+			(*tl).l_ready[n_f++] = i;
+		}
 	}
 	
-	/*Evalute the number of active flight*/
-	int n_f=0;
-	for(i=0;i<N_f;i++) if((*f)[i].ready==1) n_f++;
+
 	
 	/* sort in the fist position of the Aircraft array the active flight*/
-	_sort_ready(f,tl,N_f);
+	//_sort_ready_old(f,tl,N_f);
+	_sort_ready(f,tl,N_f,n_f);
 	
 	return n_f;
 }
@@ -891,7 +924,7 @@ int _checkShockareaRoute(long double **pos,int N,SHOCK_t shock,long double *d,lo
 int _check_risk(long double *d,CONF_t conf,int t_w,int tp){
 	int i,risk;
 	for(i=1,risk=0;i<t_w;i++) if(d[i]!=SAFE) {
-		if(d[i]<=(conf.d_thr*(1+_f_dist(i,&conf) )) ) risk=1;
+		if(d[i]<=(conf.d_thr+_f_dist(i,&conf) ))  risk=1;
 	}
 	
 	return risk;
@@ -903,7 +936,7 @@ int _get_d_neigh(CONF_t *conf,Aircraft_t **f,int N_f){
 	long double max_v=0;
 	for(i=0;i<N_f;i++) for(j=0;j<((*f)[i].n_nvp-1);j++) if((*f)[i].vel[j]>max_v) max_v = (*f)[i].vel[j];
 	
-	(*conf).d_neigh = 2.*(((*conf).t_d*(*conf).t_i)*max_v*(1+(*conf).sig_V)) + ((*conf).d_thr*(1+_f_dist((*conf).t_d,conf))) ;
+	(*conf).d_neigh = 2.*(((*conf).t_d*(*conf).t_i)*max_v*(1+(*conf).sig_V)) + ((*conf).d_thr+_f_dist(i,conf) ) ;
 	
 	return 1;
 	
@@ -1017,6 +1050,41 @@ int _temp_new_nvp(Aircraft_t *f, int safe, Aircraft_t *new_f,CONF_t conf){
 	return 1;
 }
 
+long double _eval_v_mean(Aircraft_t *f,int st_indx,int obt){
+	int i;
+	long double vsum = 0;
+	long double dsum = 0;
+	long double d;
+	
+	d = haversine_distance((*f).st_point,(*f).nvp[st_indx]);
+	vsum += (*f).vel[st_indx-1]*d;
+	dsum += d;
+	
+	for(i=st_indx;i<obt;i++) {
+		d = haversine_distance((*f).nvp[i],(*f).nvp[i+1]);
+		vsum += (*f).vel[i] * d;
+		dsum += d;
+	}
+	return vsum/dsum;
+}
+
+long double _reduce_longest_MaxTime_rer(Aircraft_t *f,int long_d,CONF_t *conf){
+	
+	long double vm;
+	long double d;
+	int i_max;
+	
+	for(i_max=long_d;i_max>(*f).st_indx;i_max--){
+		
+		vm = _eval_v_mean(f,(*f).st_indx,i_max);
+		d = haversine_distance((*f).st_point,(*f).nvp[i_max]);
+		//~ d = haversine_distance((*f).nvp[(*f).st_indx-1],(*f).nvp[i_max]);
+		
+		if( d/vm < (*conf).max_t ) return i_max;
+	}
+	return 0;
+	
+}
 int _reroute(Aircraft_t *f,Aircraft_t *flight,int N_f,SHOCK_t sh,CONF_t conf, TOOL_f tl,int unsafe,long double t){
 	
 
@@ -1056,7 +1124,9 @@ int _reroute(Aircraft_t *f,Aircraft_t *flight,int N_f,SHOCK_t sh,CONF_t conf, TO
 	(*f).n_nvp=(*f).n_nvp -  n_old+1;
 	/*Evaluate the longest possible direct 
 	 * according to the capacity constrain*/
-	int longest_rer =  _calculate_longest_direct(f,tl,conf,1);
+	//int longest_rer =  _calculate_longest_direct(f,tl,conf,1);
+	int longest_rer = (*f).n_nvp -1;
+	longest_rer = _reduce_longest_MaxTime_rer(f,longest_rer,&conf);
 	//if (longest_rer< ((*f).n_nvp-1) ) printf("%d\t%d\n",longest_rer,((*f).n_nvp-1) );
 
 
@@ -1094,9 +1164,9 @@ int _reroute(Aircraft_t *f,Aircraft_t *flight,int N_f,SHOCK_t sh,CONF_t conf, TO
 			#endif
 			
 			/* If the flight does not come back before 2*t_w */
-			if(temp_rout>(conf.t_d*conf.t_i)) {
-				continue;
-			}
+			//~ if(temp_rout>(conf.t_d*conf.t_i)) {
+				//~ continue;
+			//~ }
 			/*if the comeback angle is less then max_ang*/
 			#ifdef EUCLIDEAN
 			if(acosl(cosl(fabsl(eucl_angle_direction((*f).nvp[(*f).st_indx],(*f).nvp[(*f).st_indx+1], (*f).st_point))))>conf.max_ang) continue;
@@ -1112,7 +1182,7 @@ int _reroute(Aircraft_t *f,Aircraft_t *flight,int N_f,SHOCK_t sh,CONF_t conf, TO
 		
 			/*if solved*/
 			if(solved==0) {
-				print_operation((*f).nvp[(*f).st_indx-1],(*f).time[(*f).st_indx-1],(*f).ID,'R',conf);
+				print_operation((*f).nvp[(*f).st_indx-1],(*f).time[(*f).st_indx-1],(*f).ID,"R",conf);
 		
 				_position(f , (*f).st_point , conf.t_d, conf.t_i, conf.t_r, dV);
 				
@@ -1219,7 +1289,7 @@ int _change_flvl(Aircraft_t *f,Aircraft_t **flight,int N_f,CONF_t conf,TOOL_f tl
 
 	/*It tries first +20FL*/
 	if(!_try_flvl(f,flight,N_f,conf,tl,sh,f_lvl_on+20.,unsafe,endp,t)){
-		print_operation((*f).nvp[(*f).st_indx-1],(*f).time[(*f).st_indx-1],(*f).ID,'H',conf);
+		print_operation((*f).nvp[(*f).st_indx-1],(*f).time[(*f).st_indx-1],(*f).ID,"H",conf);
 		
 		free(h);
 		(*f).touched = 1;
@@ -1227,12 +1297,44 @@ int _change_flvl(Aircraft_t *f,Aircraft_t **flight,int N_f,CONF_t conf,TOOL_f tl
 	 }
 	 /*if it does not work, ti tries -20FL*/
 	if(!_try_flvl(f,flight,N_f,conf,tl,sh,f_lvl_on-20.,unsafe,endp,t)) {
-		print_operation((*f).nvp[(*f).st_indx-1],(*f).time[(*f).st_indx-1],(*f).ID,'H',conf);
+		print_operation((*f).nvp[(*f).st_indx-1],(*f).time[(*f).st_indx-1],(*f).ID,"H",conf);
 		
 		free(h);
 		(*f).touched = 1;
 		return 0;
 	}
+	
+	/*if it does not work return 1*/
+	for(i=(*f).st_indx-1,j=0;i<endp;i++,j++) (*f).nvp[i][2]=h[j];
+	free(h);
+	
+	return 1;
+}
+
+
+int _change_flvl_MULTI(Aircraft_t *f,Aircraft_t **flight,int N_f,CONF_t conf,TOOL_f tl,SHOCK_t sh,long double t){
+	int unsafe = (*f).st_indx-1;
+	
+	/* The flight will come back to the original flight level after 2*t_w (endp)*/
+	int endp = _find_end_point(f,conf);
+	
+	long double *h=falloc_vec(endp-((*f).st_indx-1));
+	int i,j;
+	for(i=(*f).st_indx-1,j=0;i<endp;i++,j++) h[j]=(*f).nvp[i][2];
+	
+	long double f_lvl_on=(*f).nvp[  unsafe ][2];
+	int hp;
+	for(hp=40;1;hp+=20){
+		/*It tries first +20FL*/
+		if(!_try_flvl(f,flight,N_f,conf,tl,sh,f_lvl_on+hp,unsafe,endp,t)){
+			print_operation((*f).nvp[(*f).st_indx-1],(*f).time[(*f).st_indx-1],(*f).ID,"M",conf);
+			
+			free(h);
+			(*f).touched = 1;
+			return 0;
+		 }
+	 }
+
 	
 	/*if it does not work return 1*/
 	for(i=(*f).st_indx-1,j=0;i<endp;i++,j++) (*f).nvp[i][2]=h[j];
@@ -1305,23 +1407,6 @@ int _backup_flight(Aircraft_t *Fbk,Aircraft_t *f){
 	return 1;
 }
 
-long double _eval_v_mean(Aircraft_t *f,int st_indx,int obt){
-	int i;
-	long double vsum = 0;
-	long double dsum = 0;
-	long double d;
-	
-	d = haversine_distance((*f).st_point,(*f).nvp[st_indx]);
-	vsum += (*f).vel[st_indx-1]*d;
-	dsum += d;
-	
-	for(i=st_indx;i<obt;i++) {
-		d = haversine_distance((*f).nvp[i],(*f).nvp[i+1]);
-		vsum += (*f).vel[i] * d;
-		dsum += d;
-	}
-	return vsum/dsum;
-}
 
 /*Redux flight path of rdx for direct*/
 int _reduce_path_direct(Aircraft_t *f,int st_indx, int obt){
@@ -1351,7 +1436,7 @@ int _give_direct(Aircraft_t *f,Aircraft_t *flight, int N_f,SHOCK_t sh, Aircraft_
 	_reduce_path_direct(Fbk,(*f).st_indx+1,rdx);
 	
 	/*Evaluate the risk on the new route*/
-	_position(Fbk, (*Fbk).st_point, (*conf).t_d, (*conf).t_i, (*conf).t_r, 0.); //TODO: maybe we should change this.
+	_position(Fbk, (*Fbk).st_point, (*conf).t_d, (*conf).t_i, (*conf).t_r, (*tl).dV[i]); //TODO: maybe we should change this.
 	_minimum_flight_distance((*Fbk).pos,&flight,N_f,(*conf).t_d,(*tl));
 	_checkShockareaRoute((*Fbk).pos,(*conf).t_d, sh,(*tl).dist,tt);
 	
@@ -1364,7 +1449,7 @@ int _give_direct(Aircraft_t *f,Aircraft_t *flight, int N_f,SHOCK_t sh, Aircraft_
 	_del_backup_flight(f,conf);
 	_init_backup_flight(f,Fbk,conf);
 	_backup_flight(f,Fbk);
-	_position(f, (*f).st_point, (*conf).t_d, (*conf).t_i, (*conf).t_r, 0.); //TODO: maybe we should change this.
+	_position(f, (*f).st_point, (*conf).t_d, (*conf).t_i, (*conf).t_r, (*tl).dV[i]); //TODO: maybe we should change this.
 
 	
 	return 1;
@@ -1425,6 +1510,8 @@ long double _reduce_longest_MaxTime(Aircraft_t *f,int long_d,CONF_t *conf){
 	return 0;
 	
 }
+
+
 int _init_pos(Aircraft_t *Fbk,CONF_t *conf){
 	
 	(*Fbk).pos = falloc_matrix((*conf).t_d,DPOS);
@@ -1466,13 +1553,106 @@ int _ang_direct(Aircraft_t *f,Aircraft_t *flight,int N_f,CONF_t conf, TOOL_f tl,
 	
 	int i;				
 	int prev_sec = (int) (*f).nvp[(*f).st_indx][4];
-	int next_sec; 
+	int next_sec = (*f).nvp[(*f).st_indx+1][4];
+
+	//~ plot(*f,conf,"/tmp/F.dat");
+	//~ plot_pos(*f,conf,"/tmp/pos.dat");
+	//~ plot_sector((*sec)[prev_sec],"/tmp/prev_S.dat");
+	//~ plot_sector((*sec)[next_sec],"/tmp/next_sec.dat");
 	
 	if(_give_direct(f,flight, N_f,sh, &Fbk , opt,&conf,&tl,tt)==1){
-		print_operation((*f).nvp[(*f).st_indx],(*f).time[(*f).st_indx],(*f).ID,'D',conf);
+		print_operation((*f).nvp[(*f).st_indx],(*f).time[(*f).st_indx],(*f).ID,"D",conf);
+		
+		
+		add_n_nvp(f,&conf,sec,old_nvp-(*f).n_nvp);
+		// Add First Nvp in the next sector
+		//~ add_fist_nvpInSec(f,&conf,sec,next_sec);
+		//~ plot(*f,conf,"/tmp/Fn.dat");
+		//~ plot_pos(*f,conf,"/tmp/posn.dat");
+		//~ scanf("%d",&i);
+		
+		(Fbk).n_nvp = old_nvp;
+		_del_backup_flight(&Fbk,&conf);
+		_del_pos(&Fbk,&conf);
+		(*f).touched = 1; //touch the flight
+		
+		return 1;
+	}
+
+	//Per ogni target inferiore all ottimo
+	int target, sub_opt;
+	long double sA;
+	
+	for(target = opt; target>(*f).st_indx+1 ; target--){
+		A = _eval_angDirect(f,(*f).st_indx+1,target);
+		if(A<conf.as){
+			(Fbk).n_nvp = old_nvp;
+			_del_backup_flight(&Fbk,&conf);
+			_del_pos(&Fbk,&conf);
+			return(0);
+		}
+		
+		sub_opt = _search_optimal_direct(f,target,&conf);
+		if( sub_opt == 0) continue;
+		
+		if( sub_opt == target ) continue;
+		
+
+		if(_give_direct(f,flight, N_f,sh, &Fbk , sub_opt,&conf,&tl,tt)==1){	
+			print_operation((*f).nvp[(*f).st_indx],(*f).time[(*f).st_indx],(*f).ID,"D",conf);
+
+			//~ add_fist_nvpInSec(f,&conf,sec,next_sec);
+			add_n_nvp(f,&conf,sec,old_nvp-(*f).n_nvp);
+			
+			
+			(Fbk).n_nvp = old_nvp;
+			_del_backup_flight(&Fbk,&conf);
+			_del_pos(&Fbk,&conf);
+			(*f).touched = 1; //touch the flight
+			return 1;
+		}
+	}
+	
+	(Fbk).n_nvp = old_nvp;
+	_del_backup_flight(&Fbk,&conf);
+	_del_pos(&Fbk,&conf);
+	
+	return(0);
+	
+}
+
+
+int _ang_direct2(Aircraft_t *f,Aircraft_t *flight,int N_f,CONF_t conf, TOOL_f tl,SHOCK_t sh,long double tt,SECTOR_t **sec){
+
+	if( !_is_last_another_nvp(f,conf) ) return 0;
+	
+	int longest_direct = _calculate_longest_direct(f,tl,conf,0); //Controlla che sia il valore giusto
+	
+	longest_direct = _reduce_longest_MaxTime(f,longest_direct,&conf);
+	if( longest_direct == 0 ) return 0;
+	
+	long double A = _eval_angDirect(f,(*f).st_indx+1,longest_direct);
+	if(A<conf.as) return 0;
+	
+	int opt = _search_optimal_direct(f,longest_direct,&conf);
+	//opt = longest_direct; // TO REMOVE
+	if(opt==0) return 0;
+
+	
+	Aircraft_t Fbk;
+	_init_backup_flight(&Fbk,f,&conf);
+	_init_pos(&Fbk,&conf);
+	int old_nvp = (*f).n_nvp;
+	
+	int i;				
+	int prev_sec = (int) (*f).nvp[(*f).st_indx][4];
+	int next_sec = (*f).nvp[(*f).st_indx+1][4];
+	
+	if(_give_direct(f,flight, N_f,sh, &Fbk , opt,&conf,&tl,tt)==1){
+		print_operation((*f).nvp[(*f).st_indx],(*f).time[(*f).st_indx],(*f).ID,"D",conf);
 		
 		// Add First Nvp in the next sector
-		add_fist_nvpInSec(f,&conf,sec);
+		add_fist_nvpInSec(f,&conf,sec,next_sec);
 
 		(Fbk).n_nvp = old_nvp;
 		_del_backup_flight(&Fbk,&conf);
@@ -1502,9 +1682,9 @@ int _ang_direct(Aircraft_t *f,Aircraft_t *flight,int N_f,CONF_t conf, TOOL_f tl,
 		
 
 		if(_give_direct(f,flight, N_f,sh, &Fbk , sub_opt,&conf,&tl,tt)==1){	
-			print_operation((*f).nvp[(*f).st_indx],(*f).time[(*f).st_indx],(*f).ID,'D',conf);
+			print_operation((*f).nvp[(*f).st_indx],(*f).time[(*f).st_indx],(*f).ID,"D",conf);
 		
-			add_fist_nvpInSec(f,&conf,sec);
+			add_fist_nvpInSec(f,&conf,sec,next_sec);
 
 			(Fbk).n_nvp = old_nvp;
 			_del_backup_flight(&Fbk,&conf);
@@ -1521,7 +1701,6 @@ int _ang_direct(Aircraft_t *f,Aircraft_t *flight,int N_f,CONF_t conf, TOOL_f tl,
 	return(0);
 	
 }
-
 
 
 
@@ -1722,6 +1901,66 @@ int _check_safe_events(Aircraft_t **f, int N_f, SHOCK_t sh,TOOL_f tl, CONF_t con
 
 
 
+int _check_safe_events_MULTI_FL(Aircraft_t **f, int N_f, SHOCK_t sh,TOOL_f tl, CONF_t conf, long double t, SECTOR_t **sec){
+
+	int i,unsafe=0;
+
+	/*For each flight the are flying*/
+	for(i=1;i<N_f;i++) if((*f)[i].ready){
+		
+		/*Evalute the minimum distance array for the i-flight*/
+		_minimum_flight_distance((*f)[i].pos,f,i,conf.t_w,tl);
+		
+		/*Modify the minimum distance array with a zero if it will cross a shock*/
+		_checkShockareaRoute((*f)[i].pos,conf.t_w, sh,tl.dist,t);
+		
+		if(_is_trying_direct((*f)[i],tl,conf)) if((*f)[i].st_indx< ((*f)[i].n_nvp-2)&& ((*f)[i].st_indx>0) ) {
+			//add_nvp_st_pt(&(*f)[i]);
+			//_direct(&(*f)[i],(*f),i,conf,tl,sh,t);
+			_ang_direct(&(*f)[i],(*f),i,conf,tl,sh,t,sec);
+		}
+		/*check if the minimu  distance array has some value under the safaty distance*/
+		if(conf.rer_active==1) unsafe=_check_risk(tl.dist,conf,conf.t_w,(*f)[i].tp);
+		
+		
+		if(unsafe) {
+			/* If I already moved the i-Flight in the current time step*/
+			#ifdef SINGLE_TOUCH
+			if( (*f)[i].touched == 1 ) return i;
+			#endif
+			
+			/*Return the next nvp after the first expected collision*/
+			unsafe=_checkFlightsCollision(tl.dist, conf, &(*f)[i]); 
+
+			/*try to reroute the flight*/
+			unsafe=_reroute(&((*f)[i]),(*f),i,sh,conf,tl,unsafe,t);
+			
+			/*If it does not work*/
+			if(unsafe) 
+				/*try to chenge the flight level*/
+				unsafe=_change_flvl_MULTI(&(*f)[i],f,i,conf,tl,sh,t);
+	
+			if(unsafe) {
+				/*if it does not work*/
+				//~ printf("Unsolved %d Flight\n",(*f)[i].ID);
+				//~ print_time(t);
+				//~ printf("\n");
+				return i;
+			}
+			
+			
+		}
+				
+		/* If no conflict are detected it tries with a prob direct_thr to give a direct*/
+		//else if(frand(0,1)<conf.direct_thr) if((*f)[i].st_indx< ((*f)[i].n_nvp-2)&& ((*f)[i].st_indx>0) ) {
+				 
+	}
+		
+	return -1;
+}
+
+
+
 int _expected_fly(Aircraft_t **f, int N_f, CONF_t conf, TOOL_f tl){
 	int i;
 	for(i=0;i<N_f;i++){
@@ -1845,8 +2084,7 @@ int _evolution(Aircraft_t **f,int N_f, CONF_t conf, SHOCK_t sh, TOOL_f tl, long 
 	
 	/*Get the active flight for the current time-step (n_f) */
 	int n_f = _get_ready(f,&tl,N_f,t,conf); /*do nothing*/
-	//printf("%d Flight Active\n",n_f);
-	
+
 	/*shuffle the priority list to solve conflicts*/
 	_suffle_list(f,n_f,&tl); 
 
@@ -1889,8 +2127,17 @@ int _evolution(Aircraft_t **f,int N_f, CONF_t conf, SHOCK_t sh, TOOL_f tl, long 
 		if(f_not_solv>=0){
 			/*if it does not sol the conflict for 50 trials it exit form the simulation*/
 			if(++try> N_TRY) {
+				
+				#ifdef MULTI_FL
+				_evaluate_neigh(f,n_f,&tl,conf);		
+				/*Move The aircraft more then 20FL*/
+				f_not_solv =_check_safe_events_MULTI_FL(f,n_f,sh,tl,conf,t,sec); /*put the dv here*/
+				break;
+				#endif
+				
 				printf("Not Solved, too many trials\n");
 				return 0;
+					
 			}
 			/*Increase the maximum angle of deviation until extr_ang value*/
 			_set_angle(&conf,try);

@@ -160,6 +160,13 @@ int remove_aircraft(Aircraft_t **fligth, int *Nfligth, int sel){
 	
 	return 1;
 }
+//~ FIND The sector related to the point p
+int _find_sector(long double *p,SECTOR_t **sec,int n_sect){
+	int i;
+	for(i=1;i<n_sect;i++)
+		if(point_in_polygonOK( &((*sec)[i]),p)) return i;
+	return 0;
+}
 
 int add_nvp_st_pt(Aircraft_t *f){
 	
@@ -207,17 +214,76 @@ int add_nvp_st_pt(Aircraft_t *f){
 		
 	return 1;
 }
+//~ ADD n nvp after st_indx in equally spaced
+int add_n_nvp(Aircraft_t *f,CONF_t *conf,SECTOR_t **sec, int n){
+	
+	int i,j;
+	long double **nvp=falloc_matrix( (*f).n_nvp+n,DPOS );
+	long double *vel=falloc_vec( (*f).n_nvp+ n-1 );
+	long double *time = falloc_vec(  (*f).n_nvp+n );
+	
+	for(i=0;i<=(*f).st_indx;i++) {
+		for(j=0;j<DPOS;j++) nvp[i][j] = (*f).nvp[i][j];
+		vel[i] = (*f).vel[i];
+		time[i] = (*f).time[i];		
+	}
+	for(;i<(*f).n_nvp;i++) {
+		for(j=0;j<DPOS;j++) nvp[i+n][j] = (*f).nvp[i][j];
+		vel[i+n-1] = (*f).vel[i-1];
+		time[i+n] = (*f).time[i];		
+	}
+	
+	
+	long double l = haversine_distance((*f).nvp[(*f).st_indx],(*f).nvp[(*f).st_indx+1]);
+	long double dl = l/(n+1);
+	for(i=0;i<n;i++){
+		vel[(*f).st_indx+i] = (*f).vel[(*f).st_indx];
+		nvp[(*f).st_indx+i+1][2] = (*f).nvp[(*f).st_indx][2];
+		nvp[(*f).st_indx+i+1][3] = 1.;
+		coord_NoVel((i+1)*dl,(*f).nvp[(*f).st_indx],(*f).nvp[(*f).st_indx+1],nvp[(*f).st_indx+(i+1)]);
+		nvp[(*f).st_indx+i+1][4] =  _find_sector(nvp[(*f).st_indx+(i+1)],sec,(*conf).n_sect);
 
-int add_fist_nvpInSec(Aircraft_t *f,CONF_t *conf, SECTOR_t **sec){
+		
+	}
+	
+	
+	ffree_2D((*f).nvp,(*f).n_nvp);
+	free((*f).vel);
+	free((*f).time);
+	
+	(*f).nvp = nvp;
+	(*f).vel = vel;
+	(*f).time = time;
+	(*f).n_nvp = (*f).n_nvp+n;
+	
+	_position(f, (*f).st_point, (*conf).t_d, (*conf).t_i, (*conf).t_r,(*tl).dV[i]);
+	
+	
+	return 1;
+}
+
+int add_fist_nvpInSec(Aircraft_t *f,CONF_t *conf, SECTOR_t **sec,int next_sec){
 	int i;
 	int prev_sec = (int) (*f).nvp[(*f).st_indx][4];
-	int next_sec = (int) (*f).nvp[(*f).st_indx+1][4];
+	//int next_sec = (int) (*f).nvp[(*f).st_indx+1][4];
 	
 	if(prev_sec==0||next_sec==0) return 1;
 	
+	int mynull;
 	if( next_sec != prev_sec ){
 		for(i=1;i<(*conf).t_d;i++) if(point_in_polygonOK( &((*sec)[next_sec]),(*f).pos[i])){
+			//~ 
+			//~ plot(*f,*conf,"/tmp/F.dat");
+			//~ plot_point((*f).pos[i],"/tmp/point.dat");
+			//~ plot_pos(*f,*conf,"/tmp/pos.dat");
+			//~ plot_sector((*sec)[prev_sec],"/tmp/prev_S.dat");
+			//~ plot_sector((*sec)[next_sec],"/tmp/next_sec.dat");
+			//~ 
+			
 			add_nvp_fromPos(f,i,next_sec,conf);
+			//~ plot(*f,*conf,"/tmp/OUT.dat");
+			//~ printf("DIRECT: %d %d\n",prev_sec,next_sec);
+			//~ scanf("%d",&mynull);
 			break;
 		}
 	}
@@ -231,7 +297,7 @@ int add_nvp_fromPos(Aircraft_t *f,int indx,int next_sect,CONF_t *conf){
 	long double *time = falloc_vec( (*f).n_nvp+1 );
 	
 	int i,j;
-	for(i=0;i<(*f).st_indx;i++) {
+	for(i=0;i<((*f).st_indx+1);i++) {
 		for(j=0;j<DPOS;j++) nvp[i][j]=(*f).nvp[i][j];
 		vel[i]=(*f).vel[i];
 		time[i]=(*f).time[i];
@@ -490,19 +556,6 @@ int init_Sector(Aircraft_t **flight,int *Nflight,CONF_t	*config, SHOCK_t *shock,
 	
 	/*Get configuration parameter from file*/
 	get_configuration(config_file, config);
-
-	//char* rep_tail = "/abm_tactical/config/bound_latlon.dat";
-	//char * rep = malloc(snprintf(NULL, 0, "%s%s", (*config).main_dir, rep_tail) + 1);
-	//sprintf(rep, "%s%s", (*config).main_dir, rep_tail);
-	
-	
-	//get_boundary(config); /*Maybe Unuseless*/
-
-	//free(rep);
-	//free(config_file);
-
-	
-	//printf("Generate Point\n");
 	
 	/*Get temporary point from file
 	 * The generation is deprecated*/

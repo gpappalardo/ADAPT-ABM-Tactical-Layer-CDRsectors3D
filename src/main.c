@@ -12,7 +12,7 @@
 // Entry for wrapper.
 int simulation(char **args){
 
-	srand(time(NULL));
+	srand(atoi(args[4]));
 	
 	setenv("TZ", "GMT", 1);
 	tzset();

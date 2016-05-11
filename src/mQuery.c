@@ -301,6 +301,7 @@ int get_configuration(char *config_file,CONF_t *config){
 	
 	(*config).start_datetime = _find_value_datetime(config_file, "start_datetime");
 	(*config).end_datetime = _find_value_datetime(config_file, "end_datetime");
+	
 	(*config).noise_d_thr = _find_value_string(config_file,"noise_d_thr");
 	
 	return 1;
@@ -390,8 +391,12 @@ int add_nsim_output(char *file_out,char *file_in, int n){
 }
 
 int collision_counter(char *file_output,CONF_t *c){
-	int i;
-	for(i=0;file_output[i]!='.';i++) (*c).output_CDF[i] = file_output[i];
+	int i,j;
+      	for(j=0;file_output[j]!='\0';j++);
+        for(;file_output[j]!='.';j--);
+
+	for(i=0;i<j;i++) (*c).output_CDF[i] = file_output[i];
+	(*c).output_CDF[i] = '\0';
 	
 	strcat((*c).output_CDF,"_Counter.dat");
 	
@@ -406,7 +411,7 @@ int collision_counter(char *file_output,CONF_t *c){
 int print_operation(long double *point ,long double tp,int idf,char *typ,CONF_t cnf){
 	FILE *wstream = fopen(cnf.output_CDF,"a");
 	if(wstream==NULL) BuG("Counter file is no more there\n");
-	
+	//~ 
 	time_t pT;
 	struct tm pTm={0};
 	char buff[100];
@@ -416,6 +421,7 @@ int print_operation(long double *point ,long double tp,int idf,char *typ,CONF_t 
 	localtime_r(&pT, &pTm);
 	
 	strftime(buff,100,"%Y-%m-%d %H:%M:%S",&pTm);
+	
 	
 	fprintf(wstream,"%s\t%s\t(%Lf,%Lf)\t%d\n",typ,buff,point[0],point[1],idf);
 	

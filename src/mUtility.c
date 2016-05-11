@@ -479,6 +479,18 @@ int eucl_coord(long double vel,long double *pa,long double *pb,long double *p,lo
 
 }
 
+int eucl_coord_NoVel(long double d,long double *pa,long double *pb,long double *p){
+	
+	long double D = euclid_dist2d(pb,pa);
+	
+	p[0] = pa[0] + d*(pb[0]-pa[0])/D;
+	p[1] = pa[1] + d*(pb[1]-pa[1])/D;
+	
+	return 1;
+
+}
+
+
 int coord(long double vel,long double *pa,long double *pb,long double *p,long double t){
 	
 	long double A[3],B[3],P[3];
@@ -499,10 +511,34 @@ int coord(long double vel,long double *pa,long double *pb,long double *p,long do
 		
 	_to_sphere(P, p);
 
+	return 1;																								
+}
+
+int coord_NoVel(long double d,long double *pa,long double *pb,long double *p){
+	
+	long double A[3],B[3],P[3];
+	_to_cart(pa, A);
+	_to_cart(pb, B);
+	
+	long double AB=angle_betw_0pi(A, B);
+	long double AP=(d)/RH;
+
+	long double cos_ap=cosl(AP);
+	long double sin_rap= sinl(AP)/(sinl(AB)*RH*RH);
+	
+	P[0] = A[0]*cos_ap + ( +A[1]*A[1]*B[0] + A[2]*A[2]*B[0] - A[0]*A[1]*B[1] - A[0]*A[2]*B[2] )*sin_rap;
+	
+	P[1] = A[1]*cos_ap + (- A[0]*A[1]*B[0] + A[0]*A[0]*B[1] + A[2]*A[2]*B[1] - A[1]*A[2]*B[2] )*sin_rap;
+
+	P[2] = A[2]*cos_ap + (-A[0]*A[2]*B[0] - A[1]*A[2]*B[1] + A[0]*A[0]*B[2] + A[1]*A[1]*B[2] )*sin_rap;
+		
+	_to_sphere(P, p);
+
 	return 1;
 																								
 	
 }
+
 
 //~ int coord3(long double vel, long double beta, long double *pos, long double t,long double *p){
 	//~ long double a=(vel*t)/RH;

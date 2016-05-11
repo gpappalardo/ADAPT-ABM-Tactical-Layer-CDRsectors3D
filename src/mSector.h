@@ -83,6 +83,8 @@ int point_in_polygonOK(SECTOR_t *,long double *);
 
 int add_nvp_fromPos(Aircraft_t *,int ,int, CONF_t * );
 
-int add_fist_nvpInSec(Aircraft_t *,CONF_t *, SECTOR_t **);
+int add_fist_nvpInSec(Aircraft_t *,CONF_t *, SECTOR_t **,int);
+
+int add_n_nvp(Aircraft_t *,CONF_t *, SECTOR_t **,int);
 
 #endif

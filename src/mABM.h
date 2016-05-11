@@ -32,12 +32,15 @@
 
 //#define DEBUG0
 
+#define SINGLE_TOUCH
 //#define PLOT 
+
+/* Move aircraft more then 20FL*/
+#define MULTI_FL
 
 /*Maximum Number of trials to solve a conflict*/
 #define N_TRY 50
 
-#define SINGLE_TOUCH
 
 /* To use strptime and other Time features*/
 #define __USE_XOPEN 
@@ -69,6 +72,8 @@ typedef struct {
 	
 	/*Comodo for Aircraft array*/
 	Aircraft_t *F;
+	
+	int *l_ready;
 	
 } TOOL_f ;
 
