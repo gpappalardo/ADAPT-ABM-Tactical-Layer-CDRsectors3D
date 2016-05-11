@@ -1436,7 +1436,7 @@ int _give_direct(Aircraft_t *f,Aircraft_t *flight, int N_f,SHOCK_t sh, Aircraft_
 	_reduce_path_direct(Fbk,(*f).st_indx+1,rdx);
 	
 	/*Evaluate the risk on the new route*/
-	_position(Fbk, (*Fbk).st_point, (*conf).t_d, (*conf).t_i, (*conf).t_r, (*tl).dV[i]); //TODO: maybe we should change this.
+	_position(Fbk, (*Fbk).st_point, (*conf).t_d, (*conf).t_i, (*conf).t_r, (*tl).dV[N_f]); //TODO: maybe we should change this.
 	_minimum_flight_distance((*Fbk).pos,&flight,N_f,(*conf).t_d,(*tl));
 	_checkShockareaRoute((*Fbk).pos,(*conf).t_d, sh,(*tl).dist,tt);
 	
@@ -1449,7 +1449,7 @@ int _give_direct(Aircraft_t *f,Aircraft_t *flight, int N_f,SHOCK_t sh, Aircraft_
 	_del_backup_flight(f,conf);
 	_init_backup_flight(f,Fbk,conf);
 	_backup_flight(f,Fbk);
-	_position(f, (*f).st_point, (*conf).t_d, (*conf).t_i, (*conf).t_r, (*tl).dV[i]); //TODO: maybe we should change this.
+	_position(f, (*f).st_point, (*conf).t_d, (*conf).t_i, (*conf).t_r, (*tl).dV[N_f]); //TODO: maybe we should change this.
 
 	
 	return 1;
@@ -1564,7 +1564,7 @@ int _ang_direct(Aircraft_t *f,Aircraft_t *flight,int N_f,CONF_t conf, TOOL_f tl,
 		print_operation((*f).nvp[(*f).st_indx],(*f).time[(*f).st_indx],(*f).ID,"D",conf);
 		
 		
-		add_n_nvp(f,&conf,sec,old_nvp-(*f).n_nvp);
+		add_n_nvp(f,&conf,sec,old_nvp-(*f).n_nvp,tl.dV[N_f]);
 		// Add First Nvp in the next sector
 		//~ add_fist_nvpInSec(f,&conf,sec,next_sec);
 		//~ plot(*f,conf,"/tmp/Fn.dat");
@@ -1602,7 +1602,7 @@ int _ang_direct(Aircraft_t *f,Aircraft_t *flight,int N_f,CONF_t conf, TOOL_f tl,
 			print_operation((*f).nvp[(*f).st_indx],(*f).time[(*f).st_indx],(*f).ID,"D",conf);
 
 			//~ add_fist_nvpInSec(f,&conf,sec,next_sec);
-			add_n_nvp(f,&conf,sec,old_nvp-(*f).n_nvp);
+			add_n_nvp(f,&conf,sec,old_nvp-(*f).n_nvp,tl.dV[N_f]);
 			
 			
 			(Fbk).n_nvp = old_nvp;

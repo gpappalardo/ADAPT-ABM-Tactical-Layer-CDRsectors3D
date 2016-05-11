@@ -215,7 +215,7 @@ int add_nvp_st_pt(Aircraft_t *f){
 	return 1;
 }
 //~ ADD n nvp after st_indx in equally spaced
-int add_n_nvp(Aircraft_t *f,CONF_t *conf,SECTOR_t **sec, int n){
+int add_n_nvp(Aircraft_t *f,CONF_t *conf,SECTOR_t **sec, int n,long double dV){
 	
 	int i,j;
 	long double **nvp=falloc_matrix( (*f).n_nvp+n,DPOS );
@@ -256,7 +256,7 @@ int add_n_nvp(Aircraft_t *f,CONF_t *conf,SECTOR_t **sec, int n){
 	(*f).time = time;
 	(*f).n_nvp = (*f).n_nvp+n;
 	
-	_position(f, (*f).st_point, (*conf).t_d, (*conf).t_i, (*conf).t_r,(*tl).dV[i]);
+	_position(f, (*f).st_point, (*conf).t_d, (*conf).t_i, (*conf).t_r,dV);
 	
 	
 	return 1;
