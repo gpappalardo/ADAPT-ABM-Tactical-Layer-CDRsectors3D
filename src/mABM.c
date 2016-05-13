@@ -794,42 +794,15 @@ int _excange_in_list(Aircraft_t **f,int n_f,TOOL_f *tl){
 
 }
 
-/*Check collision in flight distance*/
-// TODO: take safety events indices from _check_risk
-int _checkFlightsCollision_OLD(long double *d,CONF_t conf,Aircraft_t *f){
-	int i,indx;
-	
-	for(indx=1;indx<conf.t_w;indx++) if (d[indx]<(conf.d_thr*(1+_f_dist(indx,&conf) )) )  break;
-	if(indx==conf.t_w) return 0;
-
-	/*return navpoint immediatly after the collision*/
-	#ifdef EUCLIDEAN
-	if(eucl_isbetween((*f).st_point, (*f).nvp[(*f).st_indx], (*f).pos[indx])) return (*f).st_indx;
-	#else
-	if(isbetween((*f).st_point, (*f).nvp[(*f).st_indx], (*f).pos[indx])) return (*f).st_indx;	
-	#endif
-	for(i=(*f).st_indx ; i<((*f).n_nvp-1);i++){
-		#ifdef EUCLIDEAN
-		if(eucl_isbetween((*f).nvp[i],(*f).nvp[i+1],(*f).pos[indx])) {
-		#else
-		if(isbetween((*f).nvp[i],(*f).nvp[i+1],(*f).pos[indx])) {
-		#endif
-		    return i+1;}
-	}
-	/*if it print this is a BUG*/
-	printf("%d\t%Lf\t%Lf\n",indx,(*f).pos[indx][0],(*f).pos[indx][1]);
-	printf("\n");
-	for(i=0;i<conf.t_w;i++) printf("%d]\t%Lf\t%Lf\t%d\n",i,d[i],(conf.d_thr*(1+(i-(*f).tp)*conf.noise_d_thr)),d[i]<(conf.d_thr*(1+(i-1)*conf.noise_d_thr)));
-	return -1;
-}
-
 
 int _checkFlightsCollision(long double *d,CONF_t conf,Aircraft_t *f){
 	int i,indx;
 	
-	for(indx=1;indx<conf.t_w;indx++) if (d[indx]<(conf.d_thr*(1+_f_dist(indx,&conf) )) )  break;
-	if(indx==conf.t_w) return 0;
-
+	for(indx=1;indx<conf.t_w;indx++) if (d[indx]<(conf.d_thr+_f_dist(indx,&conf) ) )  break;
+	if(indx==conf.t_w) {
+		BuG("Not Found Expected Collision\n");
+		return 0;
+	}
 	long double t_c = indx *conf.t_i;
 	long double t = (*f).tp*conf.t_i;
 	
@@ -854,7 +827,7 @@ int _checkFlightsCollision(long double *d,CONF_t conf,Aircraft_t *f){
 	/*if it print this is a BUG*/
 	printf("%d\t%Lf\t%Lf\n",indx,(*f).pos[indx][0],(*f).pos[indx][1]);
 	printf("\n");
-	for(i=0;i<conf.t_w;i++) printf("%d]\t%Lf\t%Lf\t%d\n",i,d[i],(conf.d_thr*(1+(i-(*f).tp)*conf.noise_d_thr)),d[i]<(conf.d_thr*(1+(i-1)*conf.noise_d_thr)));
+	for(i=0;i<conf.t_w;i++) printf("%d]\t%Lf\t%Lf\t%d\n",i,d[i],(conf.d_thr+_f_dist(i,&conf) ),d[i]<(conf.d_thr+_f_dist(i,&conf) ));
 	plot_pos((*f),conf,"/tmp/pos");
 	plot((*f),conf,"/tmp/nvp");
 	plot_point((*f).pos[indx],"/tmp/point");
@@ -868,6 +841,7 @@ int _minimum_flight_distance(long double **pos,Aircraft_t **f,int N_f,int N,TOOL
 	long double min;
 	
 	for(i=0;i<N;i++){
+		tl.dist[i]=SAFE;
 		if((int)pos[i][3]&&N_f>0) {
 			/*if the flight are active and on the same flight level*/
 			if(((int)pos[i][2])!=((int)(*f)[0].pos[i][2])||((int) (*f)[0].pos[i][3])==0) min=SAFE;
@@ -896,6 +870,23 @@ int _minimum_flight_distance(long double **pos,Aircraft_t **f,int N_f,int N,TOOL
 	}
 
 	return 1;	
+}
+
+int _adjust_time(Aircraft_t **f,int N_f){
+	
+	int i,j,indx,N;
+	for(i=0;i<N_f;i++){
+		indx = (*f)[i].st_indx;
+		N = (*f)[i].n_nvp;
+		
+		(*f)[i].time[indx] =  haversine_distance((*f)[i].pos[0],(*f)[i].nvp[indx])/(*f)[i].vel[indx-1];
+	
+		for(j=indx+1;j<N;j++){
+			(*f)[i].time[j] = (*f)[i].time[j-1] + haversine_distance((*f)[i].nvp[j-1],(*f)[i].nvp[j])/(*f)[i].vel[j-1];
+		}
+	}
+	return 0;
+	
 }
 
 int _isInsideCircle(long double *p,long double *shock){
@@ -1109,15 +1100,12 @@ int _reroute(Aircraft_t *f,Aircraft_t *flight,int N_f,SHOCK_t sh,CONF_t conf, TO
 	(*f).vel[(*f).st_indx]=vm;
 	
 	for(i=(*f).st_indx+1;i<((*f).n_nvp-2);i++) (*f).vel[i]=(*f).vel[i+1];
-
 	/*create a backup for the old nvp*/
 	long double **old_nvp=falloc_matrix((*f).n_nvp,DPOS);
 	int olf=(*f).n_nvp;
 	for(i=0;i<(*f).n_nvp;i++) for(j=0;j<DPOS;j++) old_nvp[i][j]=(*f).nvp[i][j];
 		
-	int rp_temp;
-	
-	for(i=unsafe+1,rp_temp=0;i<(*f).n_nvp;i++,rp_temp++) {
+	for(i=unsafe+1;i<(*f).n_nvp;i++) {
 		for(j=0;j<DPOS;j++) (*f).nvp[i-n_old+1][j]=(*f).nvp[i][j];
 	}
 	
@@ -1838,7 +1826,7 @@ int _is_trying_direct(Aircraft_t f,TOOL_f tl,CONF_t conf){
 }
 
 int _check_safe_events(Aircraft_t **f, int N_f, SHOCK_t sh,TOOL_f tl, CONF_t conf, long double t, SECTOR_t **sec){
-
+	int mynull;
 	int i,unsafe=0;
 
 	/*For each flight the are flying*/
@@ -1867,15 +1855,16 @@ int _check_safe_events(Aircraft_t **f, int N_f, SHOCK_t sh,TOOL_f tl, CONF_t con
 			
 			/*Return the next nvp after the first expected collision*/
 			unsafe=_checkFlightsCollision(tl.dist, conf, &(*f)[i]); 
-
+			if(unsafe==0)
 			/*try to reroute the flight*/
 			unsafe=_reroute(&((*f)[i]),(*f),i,sh,conf,tl,unsafe,t);
 			
 			/*If it does not work*/
-			if(unsafe) 
+			if(unsafe) {
 				/*try to chenge the flight level*/
 				unsafe=_change_flvl(&(*f)[i],f,i,conf,tl,sh,t);
-	
+			}
+				
 			if(unsafe) {
 				/*if it does not work*/
 				//~ printf("Unsolved %d Flight\n",(*f)[i].ID);
@@ -2159,6 +2148,7 @@ int _evolution(Aircraft_t **f,int N_f, CONF_t conf, SHOCK_t sh, TOOL_f tl, long 
 
 	/* It updates the stating position of the aircraft 
 	 * to the position of the next time-step*/
+	//_adjust_time(f,n_f);
 	_set_st_point(f, n_f, conf); /*nothing here to do*/
 	
 	

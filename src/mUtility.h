@@ -127,4 +127,5 @@ long double eucl_angle_direction(long double *,long double *, long double *);
 
 /*return second from the hour*/
 long double time_to_H(long double );
+
 #endif

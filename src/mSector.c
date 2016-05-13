@@ -235,6 +235,10 @@ int add_n_nvp(Aircraft_t *f,CONF_t *conf,SECTOR_t **sec, int n,long double dV){
 	
 	
 	long double l = haversine_distance((*f).nvp[(*f).st_indx],(*f).nvp[(*f).st_indx+1]);
+	if(l<R_BUFF) {
+		printf("%d is not a regular flight\n",(*f).ID);
+		BuG("Error\n");
+	}
 	long double dl = l/(n+1);
 	for(i=0;i<n;i++){
 		vel[(*f).st_indx+i] = (*f).vel[(*f).st_indx];

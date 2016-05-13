@@ -137,7 +137,7 @@ long double haversine_distance(long double *p1, long double *p2){
 	dz = sin(th1) - sin(th2);
 	dx = cos(ph1) * cos(th1) - cos(th2);
 	dy = sin(ph1) * cos(th1);
-	return asin(sqrt(dx * dx + dy * dy + dz * dz) / 2) * 2 * RH;
+	return asin(sqrt(dx * dx + dy * dy + dz * dz) / 2.) * 2. * RH;
 }
 
 long double _norm(long double *a){
@@ -466,6 +466,7 @@ void mischia(int *carte,int N){
 	}
 	return;
 }
+
 
 int eucl_coord(long double vel,long double *pa,long double *pb,long double *p,long double t){
 	
