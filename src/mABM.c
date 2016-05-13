@@ -1187,7 +1187,6 @@ int _reroute(Aircraft_t *f,Aircraft_t *flight,int N_f,SHOCK_t sh,CONF_t conf, TO
 			}
 		}
 	}
-
 	/*NOT SOLVED*/
 	for(i=0;i<olf;i++) for(j=0;j<DPOS;j++) (*f).nvp[i][j]=old_nvp[i][j];
 	for(i=0;i<(olf-1);i++)  (*f).vel[i]=old_vel[i];
@@ -1855,10 +1854,10 @@ int _check_safe_events(Aircraft_t **f, int N_f, SHOCK_t sh,TOOL_f tl, CONF_t con
 			
 			/*Return the next nvp after the first expected collision*/
 			unsafe=_checkFlightsCollision(tl.dist, conf, &(*f)[i]); 
-			if(unsafe==0)
-			/*try to reroute the flight*/
-			unsafe=_reroute(&((*f)[i]),(*f),i,sh,conf,tl,unsafe,t);
-			
+			if(unsafe){
+				/*try to reroute the flight*/
+				unsafe=_reroute(&((*f)[i]),(*f),i,sh,conf,tl,unsafe,t);
+			}
 			/*If it does not work*/
 			if(unsafe) {
 				/*try to chenge the flight level*/
