@@ -267,7 +267,7 @@ long double _f_dist(int t,CONF_t *conf){
 
 
 /*Calculate the Position Array in the time-step . Return Zero if the Aircraft will land in the current timestep.*/
-int _position(Aircraft_t *f,long double *st_point, int t_wind, long double time_step, long double t_r, long double dV){
+int _position(Aircraft_t *f,long double *st_point, int t_wind, long double time_step, int t_step, long double dV){
 	int i,j;
 	long double l_nvp,d,t_c;
 	
@@ -310,7 +310,7 @@ int _position(Aircraft_t *f,long double *st_point, int t_wind, long double time_
 		pos[i+1][4]=0;
 	}
 	
-	int i_perf_fore = (int)(t_wind*t_r-1);
+	int i_perf_fore = (int)(t_step-1);
 	for(i=(*f).tp,j=(st_indx-1),d=0 ; i<i_perf_fore ; i++){
 		
 		d+=vel[j]*time_step;
@@ -638,7 +638,7 @@ int  _calculate_longest_direct(Aircraft_t *f,TOOL_f tl,CONF_t conf,int rer){
 int _calculate_st_point(Aircraft_t *f,CONF_t conf,long double t){
 	(*f).st_indx=1;
 
-	if(!_position(f, (*f).nvp[0], conf.t_w, conf.t_i, conf.t_r, 0.)){
+	if(!_position(f, (*f).nvp[0], conf.t_w, conf.t_i, (int)(conf.t_w*conf.t_r), 0.)){
 		(*f).ready=0;
 		return (0);
 	}
@@ -927,7 +927,8 @@ int _get_d_neigh(CONF_t *conf,Aircraft_t **f,int N_f){
 	long double max_v=0;
 	for(i=0;i<N_f;i++) for(j=0;j<((*f)[i].n_nvp-1);j++) if((*f)[i].vel[j]>max_v) max_v = (*f)[i].vel[j];
 	
-	(*conf).d_neigh = 2.*(((*conf).t_d*(*conf).t_i)*max_v*(1+(*conf).sig_V)) + ((*conf).d_thr+_f_dist(i,conf) ) ;
+	(*conf).d_neigh = 2.*(((*conf).t_d*(*conf).t_i)*max_v*(1+(*conf).sig_V)) + ((*conf).d_thr+_f_dist((*conf).t_d,conf) ) ;
+	//(*conf).d_neigh = 2.*((30*(*conf).t_i)*max_v*(1+(*conf).sig_V)) + ((*conf).d_thr+_f_dist(30,conf) ) ;
 	
 	return 1;
 	
@@ -1163,7 +1164,7 @@ int _reroute(Aircraft_t *f,Aircraft_t *flight,int N_f,SHOCK_t sh,CONF_t conf, TO
 			#endif
 
 			/*cheak the possible solution*/
-			_position(f , (*f).st_point , conf.t_w, conf.t_i, conf.t_r, dV);		
+			_position(f , (*f).st_point , conf.t_w, conf.t_i, (int) (conf.t_w*conf.t_r), dV);		
 			_minimum_flight_distance((*f).pos,&flight,N_f,conf.t_w,tl);
 			_checkShockareaRoute((*f).pos,conf.t_w, sh,tl.dist,t);
 			solved=_check_risk(tl.dist,conf,conf.t_w,(*f).tp);
@@ -1172,7 +1173,7 @@ int _reroute(Aircraft_t *f,Aircraft_t *flight,int N_f,SHOCK_t sh,CONF_t conf, TO
 			if(solved==0) {
 				print_operation((*f).nvp[(*f).st_indx-1],(*f).time[(*f).st_indx-1],(*f).ID,"R",conf);
 		
-				_position(f , (*f).st_point , conf.t_d, conf.t_i, conf.t_r, dV);
+				_position(f , (*f).st_point , conf.t_d, conf.t_i, (int)(conf.t_w*conf.t_r), dV);
 				
 				for(i=0;i<(*f).n_nvp;i++) for(j=0;j<DPOS;j++) old_nvp[i][j] = (*f).nvp[i][j];
 				ffree_2D((*f).nvp,olf);
@@ -1193,7 +1194,7 @@ int _reroute(Aircraft_t *f,Aircraft_t *flight,int N_f,SHOCK_t sh,CONF_t conf, TO
 	
 	(*f).n_nvp=olf;
 	ffree_2D(old_nvp, olf);
-	_position(f , (*f).st_point , conf.t_w, conf.t_i, conf.t_r, dV);
+	_position(f , (*f).st_point , conf.t_w, conf.t_i, (int)(conf.t_w*conf.t_r), dV);
 	free(old_vel);
 	
 	return 1;
@@ -1423,7 +1424,7 @@ int _give_direct(Aircraft_t *f,Aircraft_t *flight, int N_f,SHOCK_t sh, Aircraft_
 	_reduce_path_direct(Fbk,(*f).st_indx+1,rdx);
 	
 	/*Evaluate the risk on the new route*/
-	_position(Fbk, (*Fbk).st_point, (*conf).t_d, (*conf).t_i, (*conf).t_r, (*tl).dV[N_f]); //TODO: maybe we should change this.
+	_position(Fbk, (*Fbk).st_point, (*conf).t_d, (*conf).t_i, (int)((*conf).t_w*(*conf).t_r), (*tl).dV[N_f]); //TODO: maybe we should change this.
 	_minimum_flight_distance((*Fbk).pos,&flight,N_f,(*conf).t_d,(*tl));
 	_checkShockareaRoute((*Fbk).pos,(*conf).t_d, sh,(*tl).dist,tt);
 	
@@ -1436,7 +1437,7 @@ int _give_direct(Aircraft_t *f,Aircraft_t *flight, int N_f,SHOCK_t sh, Aircraft_
 	_del_backup_flight(f,conf);
 	_init_backup_flight(f,Fbk,conf);
 	_backup_flight(f,Fbk);
-	_position(f, (*f).st_point, (*conf).t_d, (*conf).t_i, (*conf).t_r, (*tl).dV[N_f]); //TODO: maybe we should change this.
+	_position(f, (*f).st_point, (*conf).t_d, (*conf).t_i,(int)((*conf).t_w* (*conf).t_r), (*tl).dV[N_f]); //TODO: maybe we should change this.
 
 	
 	return 1;
@@ -1763,7 +1764,7 @@ int _direct(Aircraft_t *f,Aircraft_t *flight,int N_f,CONF_t conf, TOOL_f tl,SHOC
 		(*f).n_nvp=(*f).n_nvp-h;
 
 		/*Evaluate the risk on the new route*/
-		_position(f, (*f).st_point, conf.t_d, conf.t_i, conf.t_r, 0.); //TODO: maybe we should change this.
+		_position(f, (*f).st_point, conf.t_d, conf.t_i, (int)(conf.t_w*conf.t_r), 0.); //TODO: maybe we should change this.
 		_minimum_flight_distance((*f).pos,&flight,N_f,conf.t_d,tl);
 		_checkShockareaRoute((*f).pos,conf.t_d, sh,tl.dist,tt);
 		
@@ -1783,7 +1784,7 @@ int _direct(Aircraft_t *f,Aircraft_t *flight,int N_f,CONF_t conf, TOOL_f tl,SHOC
 		/*Outwise the direct is accepted*/
 		else{
 			
-			_position(f, (*f).st_point, conf.t_d, conf.t_i, conf.t_r, 0.);
+			_position(f, (*f).st_point, conf.t_d, conf.t_i, (int)(conf.t_w*conf.t_r), 0.);
 
 		}
 		//~ printf("D\t");
@@ -1802,7 +1803,7 @@ int _direct(Aircraft_t *f,Aircraft_t *flight,int N_f,CONF_t conf, TOOL_f tl,SHOC
 	
 	/*If no solution is found*/
 
-	_position(f, (*f).st_point, conf.t_d, conf.t_i, conf.t_r, 0.);
+	_position(f, (*f).st_point, conf.t_d, conf.t_i, (int)(conf.t_w*conf.t_r), 0.);
 	ffree_2D(old_nvp,old_n_nvp);
 	free(old_vel);
 
@@ -1956,7 +1957,7 @@ int _expected_fly(Aircraft_t **f, int N_f, CONF_t conf, TOOL_f tl){
 		if((*f)[i].ready){
 			/*Compute for t_d*/
 			
-			if(!_position(&(*f)[i], (*f)[i].st_point, conf.t_d, conf.t_i, conf.t_r, tl.dV[i]) && (*f)[i].pos[0][0]==SAFE) ;
+			if(!_position(&(*f)[i], (*f)[i].st_point, conf.t_d, conf.t_i, (int)(conf.t_w*conf.t_r), tl.dV[i]) && (*f)[i].pos[0][0]==SAFE) ;
 		}
 	}
 	return 1;
