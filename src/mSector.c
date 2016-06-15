@@ -260,7 +260,7 @@ int add_n_nvp(Aircraft_t *f,CONF_t *conf,SECTOR_t **sec, int n,long double dV){
 	(*f).time = time;
 	(*f).n_nvp = (*f).n_nvp+n;
 	
-	_position(f, (*f).st_point, (*conf).t_d, (*conf).t_i, (*conf).t_r,dV);
+	_position(f, (*f).st_point, (*conf).t_d, (*conf).t_i, (int) ((*conf).t_w*(*conf).t_r),dV);
 	
 	
 	return 1;
