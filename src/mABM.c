@@ -822,7 +822,7 @@ int _checkFlightsCollision(long double *d,CONF_t conf,Aircraft_t *f){
 		#endif
 		if (t>=t_c) return i+1;	
 	}
-	
+	return (*f).n_nvp-2;
 
 	/*if it print this is a BUG*/
 	printf("%d\t%Lf\t%Lf\n",indx,(*f).pos[indx][0],(*f).pos[indx][1]);
