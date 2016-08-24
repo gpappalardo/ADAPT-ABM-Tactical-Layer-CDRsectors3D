@@ -35,7 +35,7 @@
 #define SINGLE_TOUCH
 //#define PLOT 
 
-/* Move aircraft more then 20FL*/
+/* Move aircraft more then 20FL in case of unsolved conflicts*/
 #define MULTI_FL
 
 /*Maximum Number of trials to solve a conflict*/

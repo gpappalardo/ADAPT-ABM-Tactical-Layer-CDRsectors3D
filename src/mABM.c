@@ -2114,7 +2114,7 @@ int _evolution(Aircraft_t **f,int N_f, CONF_t conf, SHOCK_t sh, TOOL_f tl, long 
 		
 		/*if f_not_solv>0, the f_not_solv flight cannot be solved*/
 		if(f_not_solv>=0){
-			/*if it does not sol the conflict for 50 trials it exit form the simulation*/
+			/*if it does not sol the conflict for N_TRY trials it exit form the simulation*/
 			if(++try> N_TRY) {
 				
 				#ifdef MULTI_FL

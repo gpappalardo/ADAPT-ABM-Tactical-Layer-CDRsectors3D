@@ -293,7 +293,7 @@ int get_configuration(char *config_file,CONF_t *config){
 	//printf("%s\n", config_file);
 	//exit(0);
 	//(*config).main_dir = "/home/earendil/Documents/ELSA/ABM/ABM_FINAL";
-	(*config).main_dir = _find_value_string_char(config_file, "main_dir");
+	//(*config).main_dir = _find_value_string_char(config_file, "main_dir");
 	(*config).temp_nvp = _find_value_string_char(config_file, "temp_nvp");
 	(*config).shock_tmp = _find_value_string_char(config_file, "shock_tmp");
 	(*config).bound_file = _find_value_string_char(config_file, "bound_file");
