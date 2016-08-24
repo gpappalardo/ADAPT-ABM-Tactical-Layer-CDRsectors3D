@@ -57,7 +57,7 @@ Other files are required to run the simulations, which are called respectively t
 
 The temp_nvp.dat consists in a two columns text file with latitude and longitude of the temporary points used for rerouting. The number of temporary nvps used in the simulation is defined via a #define variable called NTMP in mSector.h. The user must be careful because the code:
 * does not check if the points are within the ACC. 
-* does not check the number of points matches \verb|NTMP|.
+* does not check the number of points matches NTMP.
 
 The shock_tmp.dat has the same format of temp_nvp.dat and it contains the centers of the shocks used in the simulations. This also has to be created via an external script, which is not included at the moment in the repository. We aware the users that the shock code it was not sufficiently tested.
 
@@ -77,8 +77,9 @@ Another useful #define is DTMP_P that is the Maximum distance in meters of the s
 
 Others #define do not have associated values. For example:
 
+```
 #define SINGLE_TOUCH
-
+```
 
 If you comment this #define the ABM can perform a multiple modification of the route of the same aircraft in the same time-step if it does not find any solution.
 
