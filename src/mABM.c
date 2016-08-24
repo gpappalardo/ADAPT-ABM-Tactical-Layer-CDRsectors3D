@@ -113,7 +113,7 @@ int del_conf(CONF_t *conf){
 	free((*conf).capacy);
 	
 	
-	free((*conf).main_dir);
+	//free((*conf).main_dir);
 	free((*conf).bound_file);
 	free((*conf).capacity_file);
 	free((*conf).temp_nvp);
