@@ -98,3 +98,5 @@ In particular, a user who would like to increase the time horizon of the control
 * The shocks appear only on 10 flight levels, not on a whole column of air. The variables shock_f_lvl_min and shock_f_lvl_max do not change this fact. Instead, they are fixing the possible interval of flight levels of apparition of the shocks.
 * The starting and ending dates have to be informed in the config file at the corresponding lines. They need to be consistent with the trajectories provided. 
 
+A flight plan should contain at least 4 nvps. The safety events concening the first and the last segment are not cheacked.
+
