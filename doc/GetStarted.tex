@@ -1,0 +1,149 @@
+
+\documentclass[12pt]{article}
+
+%\usepackage[latin1]{inputenc}
+%\usepackage[french]{babel}
+\usepackage{graphicx}
+\usepackage{lmodern}
+\usepackage{vmargin}
+\usepackage{pdfpages}
+\usepackage{url}
+
+
+%\setmarginsrb{leftmargin}{topmargin}{rightmargin}{bottommargin}{headheight}{headsep}{footheight}{footskip}
+\setmarginsrb{3cm}{1.5cm}{2.7cm}{2cm}{0cm}{1.5cm}{1.1cm}{1.5cm}
+
+% Width for images
+
+\graphicspath{{Figures/}}
+
+
+\begin{document}
+
+
+\thispagestyle{empty}
+
+
+\begin{center}
+\Large{{\sc  Getting Started with the ELSA Air Traffic Simulator}}
+\end{center}
+
+\vspace{-0.3cm}
+
+\hspace{-\parindent}\setlength{\unitlength}{\textwidth}
+\begin{picture}(1,0)
+\put(0,0){\line(1,0){1}}
+\end{picture}
+
+\vspace{0.3cm}
+
+\subsection{Using the Tactical layer}
+\label{sec:tactical}
+The Tactical layer aims at transforming planned trajectories into ``actual'' trajectories by deconflicting them with a simulated super-controller. The standard input is an ``M1 file'' whereas the output is an ``M3 file'', similarly to what exists in DDR data.
+\\
+
+The code of the Tactical ABM is stored in src folder. In the config folder there is the config.cfg that contains the values of most of the parameters.
+
+You can directly compile the source code in the following way:
+
+\begin{verbatim}
+cd src/
+
+LC_ALL=C gcc -O3 -c *.c && gcc *.o -o ../ElsaABM.so -lm
+
+cd ../
+\end{verbatim}
+
+Once the binary \verb|ElsaABM.so| is produced it is possible to execute the simulations:
+
+\begin{verbatim}
+./ElsaABM.so M1_file M3_file Config_file seed
+\end{verbatim}
+where \verb|M1_file| is the file containing the trajectories which will serve as input for the model and \verb|M3_file| is the file that will contain the output, i.e. the trajectories deconflicted by the controller.
+\\
+
+Using the files provided as examples in the tests/example/ folder, the user can run:
+\begin{verbatim}
+./ElsaABM.so example/M1_example.dat example/M3_example.dat
+ config/config.cfg 3497
+\end{verbatim}
+which should produce the \verb|M3_example_0.dat| file with deconflicted trajectories. 
+
+\subsubsection{Input-Output File Format}
+
+Either M1 input file and M3 output files have the same format. The first line must contain the number of flights (trajectories contained in the files):
+\begin{verbatim}
+1475\tNflight
+\end{verbatim}
+the following lines are the trajectory of each aircraft. In particular the first two positions, separated by a $\backslash t$,  represent respectively the ID, a unique int number that identify the flight, and the number of NVP in the related route. 
+
+The following positions are the nvps of the route. They consist in 5 values, separated by a comma: the horizontal position (latitude and longitude), the Flight Level, the time in the format `2010-05-06 10:20:32', and an integer number that refers to the sector to which the navpoint belongs. 
+
+\subsubsection{Configuration File}
+Most of the parameters are stored in the configuration file. Changing these values do not require to re-compile the code. 
+
+An example of a config file can be found in \verb|config/|. Each line starting with $\#$ is a comment, whereas all other lines are values. The name of the variable it refers to needs to be written after a '\verb|\t#|'. For instance:
+\begin{verbatim}
+#This is a comment
+24\t#t_w\n
+\end{verbatim}
+gives $t_w = 24$. The position of the values in the configuration file does not matter.
+
+Note that the ABM does not perform any consistency checks on the variables. For example if one wants to increase the lookahead $t\_w$, one needs to fix the product $t_w \times t_r \times t_i$ which represents the time-step\footnote{The smaller is this product, the better works the ABM by the way. See deliverable D2.4 included in the doc/ folder, however a small time-step implies a high computational effort. A good choice for the time-step is about 3min.}. These three values are the most crucial ones for the simulations and should be chosen with care. The user can find their descriptions in the deliverable D2.4 included in the doc/ folder.
+\\
+
+Most of the values of the configuration file can be changed without too much trouble. The most simple features are tunable with the parameters \verb|nsim| (number of simulations), and \verb|Nm_shock|, (number of shocks), \verb|radius| (radius of the shocks in nautical miles). Using and modifying other parameters requires some more deeper understanding of the models, which can be achieving by reading D2.4, included in the doc/ folder. See also the caveats section \ref{subsec:caveats}.
+
+
+\subsubsection{Additional files}
+Other files are required to run the simulations, which are called respectively \verb|temp_nvp.dat|, \verb|shock_tmp.dat|,  \verb|sector_capacities.dat|, and \verb|bound_latlon.dat|. Some examples are stored in the config folder \verb|config/|. Their paths have to be specified in the config file, in the corresponding entries.\\
+
+The \verb|temp_nvp.dat| consists in a two columns text file with latitude and longitude of the temporary points used for rerouting. The number of temporary nvps used in the simulation is defined via a \#define variable called \verb|NTMP| in mSector.h. The user must be careful because the code:
+\begin{itemize}
+\item does not check if the points are within the ACC. 
+\item does not check the number of points matches \verb|NTMP|.
+\end{itemize}
+
+
+The \verb|shock_tmp.dat| has the same format of \verb|temp_nvp.dat| and it contains the centers of the shocks used in the simulations. This also has to be created via an external script, which is not included at the moment in the repository.
+
+The \verb|sector_capacities.dat| has two columns: the first one stores the ID of the sector, the second the related capacity. These labels need to be consistent with the ones present in the M1 file. Note that the user can use the '-1' for navpoints which do not have to be under control. This is more specifically used for the first and the last points of the trajectories (see caveats \ref{subsec:caveats}).
+
+Finally, the file \verb|bound_latlon.dat| contains the boundaries of the airspace as a list of latitudes/longitudes, like the \verb|temp_nvp.dat| file.
+
+\subsubsection{Define}
+
+Other parameters are defined in the header files. Every time you want to change these parameters you need to recompile the code. For example in mABM.h is defined LS that is the minimum improvement of the trajectory for a direct:
+\begin{verbatim}
+#define LS 1000
+\end{verbatim}
+
+Another useful \#define is DTMP\_P that is the Maximum distance in meters of the selected temporary points for the rerouting operations.
+
+Others \#define do not have associated values. For example:
+\begin{verbatim}
+#define SINGLE_TOUCH
+\end{verbatim}
+
+If you comment this \#define the ABM can perform a multiple modification of the route of the same aircraft in the same time-step if it does not find any solution.
+
+
+\subsection{Caveats}
+\label{subsec:caveats}
+
+Here are some potential traps for new users concerning the tactical layer:
+\begin{itemize}
+\item The time step $t_s$ is the one the most important parameter of the model. It is equal to $t_s = t_i \times t_w\times t_r$:
+\begin{enumerate}
+\item The time increment $t_i$ is the time resolution for the trajectories. It should be very small (around 8 seconds),
+\item The time window $t_w$ represents the time horizon of the controller on which it will compute the future potential conflicts.
+\item The time roll $t_r$, which is a fraction of the time window, represents the time after which the controller updates trajectories of the flights.
+\end{enumerate}
+In particular, a user who would like to increase the time horizon of the controller would need to keep the time-step $t_s = t_i \times t_w\times t_r$ fixed by reducing the time-roll, otherwise different effects will mix up.
+\item The life duration of shocks is computed with respect to the time step. Hence changing $t_i$, $t_w$, or $t_r$ will change the duration of the flights.
+\item The shocks appear only on 10 flight levels, not on a whole column of air. The variables \verb|shock_f_lvl_min| and \verb|shock_f_lvl_max| do not change this fact. Instead, they are fixing the possible interval of flight levels of apparition of the shocks.
+\item The starting and ending dates have to be informed in the config file at the corresponding lines. They need to be consistent with the trajectories provided. 
+\end{itemize}
+
+
+\end{document}

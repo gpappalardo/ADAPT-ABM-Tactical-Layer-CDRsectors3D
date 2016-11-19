@@ -1,0 +1,10 @@
+Authors:
+
+Christian Bongiorno <pvofeta@gmail.com>
+
+Contributors:
+Salvatore Miccichè, Rosario Mantegna.
+
+Indirect Contributors:
+Gérald Gurtner, Fabrizio Lillo, Luca Valori, Simone Pozzi, Marco Ducci.
+
