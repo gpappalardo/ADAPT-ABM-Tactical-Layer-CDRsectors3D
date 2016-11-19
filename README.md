@@ -24,7 +24,7 @@ The code is released under the MIT See LICENSE.txt, and AUTHORS.txt for more det
 
 The code has been written by Christian Bongiorno.
 
-with main the contribution of: Salvatore Miccichè, Rosario Mantegna
+with the main contribution of: Salvatore Miccichè, Rosario Mantegna
 
 Other indirect contributors are: , Gérald Gurtner, Fabrizio Lillo, Luca Valori, Simone Pozzi, Marco Ducci.
 
