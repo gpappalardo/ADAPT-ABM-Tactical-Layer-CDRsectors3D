@@ -18,7 +18,7 @@ https://github.com/ELSA-Project/ELSA-ABM
 
 # License
 
-The code is released under the MIT See LICENSE.txt, COPYING.txt and AUTHORS.txt for more details.
+The code is released under the MIT See LICENSE.txt, and AUTHORS.txt for more details.
 
 # Credits
 
