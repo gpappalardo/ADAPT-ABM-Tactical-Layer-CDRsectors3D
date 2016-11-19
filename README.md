@@ -22,7 +22,7 @@ The code is released under the MIT See LICENSE.txt, and AUTHORS.txt for more det
 
 # Credits
 
-The tactical part has been written by Christian Bongiorno.
+The code has been written by Christian Bongiorno.
 
 with main the contribution of: Salvatore Miccichè, Rosario Mantegna
 
