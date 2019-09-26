@@ -95,6 +95,11 @@ int get_M1(char *m1_file,Aircraft_t **flight,CONF_t *conf){
 		if(!fgets(c, R_BUFF, rstream)) BuG("BUG in M1 File -lx0\n");
 		(*flight)[i].ready = 0;
 		(*flight)[i].ID=atoi(c);
+		//int mytest;
+		//mytest = (*flight)[i].ID;
+		//if(mytest==11424)
+		//	mytest = 0;
+
 		for(j=1;c[j]!='\t';j++);
 		
 		(*flight)[i].n_nvp=atoi(&c[++j]);
@@ -165,7 +170,34 @@ int get_M1(char *m1_file,Aircraft_t **flight,CONF_t *conf){
 	_calculate_velocity((*flight),Nflight);
 	
 	fclose(rstream);
+	if((*conf).use_delay_file==1){
+		rstream=fopen((*conf).delay_file  ,"r");
+		if(rstream==NULL) BuG("Delay File doesn't exist\n");
+		if(!fgets(c, R_BUFF, rstream)) BuG("Impossible to read Delay File\n");
 	
+		long int fid,delay,n;
+		for(n=0;fgets(c,500,rstream);n++){
+			if(n>=Nflight) break;
+			fid =atof(c);
+			for(i=0;c[i]!='\t';i++);
+			delay=atof(&c[++i]);
+			//printf("%d %d\n",fid,delay);
+			int tr = -1;
+			for(int jj=0;jj<Nflight;jj++){
+				if((*flight)[jj].ID == fid){
+					tr = jj;
+					break;
+				}
+			}
+			if(tr==-1) {
+				printf("%ld",fid);
+				printf("non trovato!\n");
+
+			}
+			else (*flight)[tr].tw = delay;
+		}
+			fclose(rstream);
+	}
 	return Nflight;
 }
 
@@ -267,6 +299,8 @@ int get_configuration(char *config_file,CONF_t *config){
 	(*config).conf_ang = _find_value_string(config_file,"max_ang");
 	(*config).extr_ang = _find_value_string(config_file,"extr_ang");
 	(*config).nsim = (int) _find_value_string(config_file,"nsim");
+	(*config).n_polygon = atoi(_find_value_string_char(config_file,"npol"));
+
 	(*config).x_capacity = _find_value_string(config_file,"x_capacity");
 	(*config).direct_thr = _find_value_string(config_file,"direct_thr");
 	(*config).xdelay = _find_value_string(config_file,"xdelay");
@@ -293,14 +327,17 @@ int get_configuration(char *config_file,CONF_t *config){
 	//printf("%s\n", config_file);
 	//exit(0);
 	//(*config).main_dir = "/home/earendil/Documents/ELSA/ABM/ABM_FINAL";
-	(*config).main_dir = _find_value_string_char(config_file, "main_dir");
+	//(*config).main_dir = _find_value_string_char(config_file, "main_dir");
 	(*config).temp_nvp = _find_value_string_char(config_file, "temp_nvp");
 	(*config).shock_tmp = _find_value_string_char(config_file, "shock_tmp");
 	(*config).bound_file = _find_value_string_char(config_file, "bound_file");
 	(*config).capacity_file = _find_value_string_char(config_file, "capacity_file");
+	(*config).use_delay_file = (int)_find_value_string(config_file,"use_delay");
+	//(*config).delay_file = _find_value_string_char(config_file,"delay_file");
 	
 	(*config).start_datetime = _find_value_datetime(config_file, "start_datetime");
 	(*config).end_datetime = _find_value_datetime(config_file, "end_datetime");
+	
 	(*config).noise_d_thr = _find_value_string(config_file,"noise_d_thr");
 	
 	return 1;
@@ -389,6 +426,47 @@ int add_nsim_output(char *file_out,char *file_in, int n){
 	
 }
 
+int collision_counter(char *file_output,CONF_t *c){
+	int i,j;
+      	for(j=0;file_output[j]!='\0';j++);
+        for(;file_output[j]!='.';j--);
+
+	for(i=0;i<j;i++) (*c).output_CDF[i] = file_output[i];
+	(*c).output_CDF[i] = '\0';
+	
+	strcat((*c).output_CDF,"_Counter.dat");
+	
+	FILE *wstream = fopen((*c).output_CDF,"w");
+	if(wstream==NULL) BuG("No Counter File\n");
+	fclose(wstream);
+	
+	return 1;
+	
+}
+
+int print_operation(long double *point ,long double tp,int idf,char *typ,CONF_t cnf){
+	FILE *wstream = fopen(cnf.output_CDF,"a");
+	if(wstream==NULL) BuG("Counter file is no more there\n");
+	//~ 
+	time_t pT;
+	struct tm pTm={0};
+	char buff[100];
+	
+				
+	pT = (time_t) tp;
+	localtime_r(&pT, &pTm);
+	
+	strftime(buff,100,"%Y-%m-%d %H:%M:%S",&pTm);
+	
+	
+	fprintf(wstream,"%s\t%s\t(%Lf,%Lf)\t%d\n",typ,buff,point[0],point[1],idf);
+	
+	fclose(wstream);
+	
+	return 1;
+}
+		
+
 
 int get_capacity(char *file_r,CONF_t *conf){
 	
@@ -399,7 +477,7 @@ int get_capacity(char *file_r,CONF_t *conf){
 	for((*conf).n_sect=0;fgets(c, R_BUFF, rstream);((*conf).n_sect)++) if(c[0]=='#') ((*conf).n_sect)--;
 	fclose(rstream);
 	
-	((*conf).n_sect)++;
+	((*conf).n_sect) += 2;
 	(*conf).capacy = ialloc_vec((*conf).n_sect);
 	
 	rstream=fopen(file_r,"r");
@@ -416,6 +494,7 @@ int get_capacity(char *file_r,CONF_t *conf){
 
 	}
 	(*conf).capacy[0]=SAFE;
+	(*conf).capacy[(*conf).n_sect-1] = SAFE;
 	fclose(rstream);
 	
 	return 1;	

@@ -12,6 +12,7 @@
 #include "mTest.h"
 #include "mABM.h"
 
+
 #include<stdlib.h>
 #include<stdio.h>
 #include<math.h>
@@ -61,6 +62,7 @@ int generate_temporary_point(CONF_t *config){
 	(*config).n_tmp_nvp=NTMP;
 	
 	(*config).tmp_nvp = falloc_matrix((*config).n_tmp_nvp, 2);
+	// (*config).tmp_nvp = falloc_matrix((*config).n_tmp_nvp, 3);
 	int n;
 //#ifdef TMP_FROM_FILE
 	/*
@@ -71,16 +73,23 @@ int generate_temporary_point(CONF_t *config){
 
 	if((*config).tmp_from_file){
 		//printf("Attention! read temporary nvp from file\n");
-		int i;
+		int i,k;
 		char c[500];
 
 		FILE *rstream=fopen((*config).temp_nvp,"r");
-		if(rstream==NULL) BuG("Impossible to open temp_nvp.dat\n");
+		
+		if(rstream==NULL) 
+		{
+			BuG("Impossible to open temp_nvp.dat\n");
+			BuG((*config).temp_nvp);
+		}
 		for(n=0;fgets(c,500,rstream);n++){
 			if(n>=NTMP) break;
 			(*config).tmp_nvp[n][0]=atof(c);
 			for(i=0;c[i]!='\t';i++);
 			(*config).tmp_nvp[n][1]=atof(&c[++i]);
+			//for(k=0;c[i+k]!='\t';k++);
+			//(*config).tmp_nvp[n][2]=atoi(&c[i+(++k)]);
 			
 			#ifdef EUCLIDEAN
 			project((*config).tmp_nvp[n],(*config).tmp_nvp[n]);
@@ -93,8 +102,15 @@ int generate_temporary_point(CONF_t *config){
 #endif
 		}
 		fclose(rstream);
-		(*config).n_tmp_nvp = n;
-		//free(rep);	
+		//(*config).n_tmp_nvp = n;
+		//free(rep);
+		/*for (i=0;i<(*config).n_tmp_nvp;i++){
+			printf("%Lf ",(*config).tmp_nvp[i][0]);
+			printf("%Lf ",(*config).tmp_nvp[i][1]);
+			printf("%Lf\n",(*config).tmp_nvp[i][2]);
+		}
+		printf("======\n");
+		*/
 		return 1;
 	}
 //#endif
@@ -160,6 +176,35 @@ int remove_aircraft(Aircraft_t **fligth, int *Nfligth, int sel){
 	
 	return 1;
 }
+//~ FIND The sector related to the point p
+int _find_sector_old(long double *p,SECTOR_t **sec,int n_sect){
+	int i;
+	for(i=1;i<n_sect;i++)
+		if(point_in_polygonOK( &((*sec)[i]),p)) return ;
+	return 0;
+}
+
+int _find_sector(long double *p,SECTOR_t **sec,int n_sect){
+	int i;
+	if (point_in_polygonOK(&((*sec)[n_sect-1]),p))
+	{
+		for(i=1;i<n_sect;i++)
+		{
+			if(point_in_polygonOK( &((*sec)[i]),p))
+			{
+				return ((*sec)[i]).n_name;
+			}
+		}
+		return n_sect-1;
+	}
+	return 0;
+}
+
+
+
+
+
+
 
 int add_nvp_st_pt(Aircraft_t *f){
 	
@@ -207,17 +252,81 @@ int add_nvp_st_pt(Aircraft_t *f){
 		
 	return 1;
 }
+//~ ADD n nvp after st_indx in equally spaced
+int add_n_nvp(Aircraft_t *f,CONF_t *conf,SECTOR_t **sec, int n,long double dV){
+	
+	int i,j;
+	long double **nvp=falloc_matrix( (*f).n_nvp+n,DPOS );
+	long double *vel=falloc_vec( (*f).n_nvp+ n-1 );
+	long double *time = falloc_vec(  (*f).n_nvp+n );
+	
+	for(i=0;i<=(*f).st_indx;i++) {
+		for(j=0;j<DPOS;j++) nvp[i][j] = (*f).nvp[i][j];
+		vel[i] = (*f).vel[i];
+		time[i] = (*f).time[i];		
+	}
+	for(;i<(*f).n_nvp;i++) {
+		for(j=0;j<DPOS;j++) nvp[i+n][j] = (*f).nvp[i][j];
+		vel[i+n-1] = (*f).vel[i-1];
+		time[i+n] = (*f).time[i];		
+	}
+	
+	
+	long double l = haversine_distance((*f).nvp[(*f).st_indx],(*f).nvp[(*f).st_indx+1]);
+	if(l<SGL) {
+		printf("%d is not a regular flight\n",(*f).ID);
+		BuG("Error\n");
+	}
+	long double dl = l/(n+1);
+	for(i=0;i<n;i++){
+		vel[(*f).st_indx+i] = (*f).vel[(*f).st_indx];
+		nvp[(*f).st_indx+i+1][2] = (*f).nvp[(*f).st_indx][2];
+		nvp[(*f).st_indx+i+1][3] = 1.;
+		coord_NoVel((i+1)*dl,(*f).nvp[(*f).st_indx],(*f).nvp[(*f).st_indx+1],nvp[(*f).st_indx+(i+1)]);
+		//nvp[(*f).st_indx+i+1][4] =  _find_sector(nvp[(*f).st_indx+(i+1)],sec,(*conf).n_sect);
+		nvp[(*f).st_indx+i+1][4] =  _find_sector(nvp[(*f).st_indx+(i+1)],sec,(*conf).n_polygon);
 
-int add_fist_nvpInSec(Aircraft_t *f,CONF_t *conf, SECTOR_t **sec){
+		
+	}
+	
+	
+	ffree_2D((*f).nvp,(*f).n_nvp);
+	free((*f).vel);
+	free((*f).time);
+	
+	(*f).nvp = nvp;
+	(*f).vel = vel;
+	(*f).time = time;
+	(*f).n_nvp = (*f).n_nvp+n;
+	
+	_position(f, (*f).st_point, (*conf).t_d, (*conf).t_i, (int) ((*conf).t_w*(*conf).t_r),dV);
+	
+	
+	return 1;
+}
+
+int add_fist_nvpInSec(Aircraft_t *f,CONF_t *conf, SECTOR_t **sec,int next_sec){
 	int i;
 	int prev_sec = (int) (*f).nvp[(*f).st_indx][4];
-	int next_sec = (int) (*f).nvp[(*f).st_indx+1][4];
+	//int next_sec = (int) (*f).nvp[(*f).st_indx+1][4];
 	
 	if(prev_sec==0||next_sec==0) return 1;
 	
+	int mynull;
 	if( next_sec != prev_sec ){
 		for(i=1;i<(*conf).t_d;i++) if(point_in_polygonOK( &((*sec)[next_sec]),(*f).pos[i])){
+			//~ 
+			//~ plot(*f,*conf,"/tmp/F.dat");
+			//~ plot_point((*f).pos[i],"/tmp/point.dat");
+			//~ plot_pos(*f,*conf,"/tmp/pos.dat");
+			//~ plot_sector((*sec)[prev_sec],"/tmp/prev_S.dat");
+			//~ plot_sector((*sec)[next_sec],"/tmp/next_sec.dat");
+			//~ 
+			
 			add_nvp_fromPos(f,i,next_sec,conf);
+			//~ plot(*f,*conf,"/tmp/OUT.dat");
+			//~ printf("DIRECT: %d %d\n",prev_sec,next_sec);
+			//~ scanf("%d",&mynull);
 			break;
 		}
 	}
@@ -231,7 +340,7 @@ int add_nvp_fromPos(Aircraft_t *f,int indx,int next_sect,CONF_t *conf){
 	long double *time = falloc_vec( (*f).n_nvp+1 );
 	
 	int i,j;
-	for(i=0;i<(*f).st_indx;i++) {
+	for(i=0;i<((*f).st_indx+1);i++) {
 		for(j=0;j<DPOS;j++) nvp[i][j]=(*f).nvp[i][j];
 		vel[i]=(*f).vel[i];
 		time[i]=(*f).time[i];
@@ -471,17 +580,126 @@ int _get_bound(char *directory,SECTOR_t *sector, int sel_sect){
 	return 1;
 }
 
+int _get_ecac_bound(char *directory,SECTOR_t *sector, int sel_sect){
+
+	char file[R_BUFF];
+	char num[R_BUFF];
+	strcpy(file,directory);
+	strcat(file,"bound_latlon.dat");
+
+	//printf("%s\n",file);
+	/* Count the side of the sector */
+	FILE *rstream = fopen(file,"r");
+	if(rstream==NULL) BuG("Boundary file does not exist\n");
+	int Nbound;
+	char c[R_BUFF];
+	for((*sector).n_side=0;fgets(c, R_BUFF, rstream);((*sector).n_side)++);
+	fclose(rstream);
+
+
+	//Actually reading the file
+	rstream=fopen(file, "r");
+	(*sector).bound = falloc_matrix((*sector).n_side, 2);
+	int i,j;
+	for(i=0;fgets(c, R_BUFF, rstream)&&i<(*sector).n_side ;i++){
+		(*sector).bound[i][0]=atof(c);
+		for(j=0;c[j]!='\t'&&c[j]!=' ';j++);
+		(*sector).bound[i][1]=atof(&c[++j]);
+	}
+	fclose(rstream);
+
+	//Calculate value useful for poin_in_polygon
+	precalc_values(sector);
+
+	return 1;
+}
+
+
+
+
+
+
+
+
+
+
+int get_Sector_bounds(char *sector_file,SECTOR_t **sectors,int i_sector,int* p_sector){//(char *sector_file, CONF_t config)
+	char file[R_BUFF];
+	char num[R_BUFF];
+	sprintf(num, "%d", i_sector);
+
+	strcpy(file,sector_file);
+	strcat(file,num);
+	strcat(file,"_bound_latlon.dat");
+	FILE *rstream;
+	int i,j,h;
+	rstream = fopen(file,"r");
+	if (rstream==NULL) BuG("Sector File doesn't exists\n");
+
+	char c[R_BUFF];
+	if(!fgets(c, R_BUFF, rstream)) BuG("Impossible to read sector file\n");
+
+	int NPolygon = atoi(c);
+	for (i=0;i<NPolygon;i++){
+		if(!fgets(c, R_BUFF, rstream)) BuG("BUG in sector File\n");
+		(*sectors)[*p_sector].n_name = i_sector;
+		(*sectors)[*p_sector].n_pol = *p_sector;
+		(*sectors)[*p_sector].fl_begin = atof(c);
+		for(j=1;c[j]!='\t';j++);
+		(*sectors)[*p_sector].fl_end = atof(&c[++j]);
+		for(;c[j]!='\t';j++);
+		(*sectors)[*p_sector].time_begin = atol(&c[++j]);
+		for(;c[j]!='\t';j++);
+		(*sectors)[*p_sector].time_end = atol(&c[++j]);
+		for(;c[j]!='\t';j++);
+		//int Npoints = atoi(&c[++j]);
+		(*sectors)[*p_sector].n_side = atoi(&c[++j]);
+		//(*config).bound = falloc_matrix(Nbound, 2);
+		if((*sectors)[*p_sector].n_side==0) BuG("BUG in sector File: Polygon has no points\n");
+		(*sectors)[*p_sector].bound = falloc_matrix((*sectors)[*p_sector].n_side, 2);
+
+		for(h=0;h<(*sectors)[*p_sector].n_side;h++){
+			for(++j;c[j]!='\t'&&c[j]!='\0'&&c[j]!='\n';j++);
+			if(c[j]=='\0'||c[j]=='\n') BuG("BUG in M1 File -lx1\n");
+			//int lat = atof(&c[++j]);
+			(*sectors)[*p_sector].bound[h][0] = atof(&c[++j]);
+
+			for(++j;c[j]!=','&&c[j]!='\0'&&c[j]!='\n';j++);
+			if(c[j]=='\0') BuG("BUG in M1 File -lx2\n");
+			//int lon = atof(&c[++j]);
+			(*sectors)[*p_sector].bound[h][1]=atof(&c[++j]);
+			}
+		//Calculate value useful for point_in_polygon
+		precalc_values(&(*sectors)[*p_sector]);
+		(*p_sector) += 1;
+		}
+	fclose(rstream);
+	return 1;
+}
+
 int _get_sectors_boundary(CONF_t *config,SECTOR_t **sectors){
 	
 	// Allocation n_sect
-	(*sectors) = (SECTOR_t*) malloc((*config).n_sect * sizeof(SECTOR_t));
+	//(*sectors) = (SECTOR_t*) malloc((*config).n_sect * sizeof(SECTOR_t));
+	// Allocation for n_polygon polygons
+	(*sectors) = (SECTOR_t*) malloc((*config).n_polygon * sizeof(SECTOR_t));
 	if((*sectors)==NULL) BuG("No Memory\n");
 	
 	int i;
 	
-	
-	for(i=1;i<(*config).n_sect;i++) _get_bound((*config).bound_file,&((*sectors)[i]),i);
 
+	int p=1;
+	// WAS for(i=1;i<(*config).n_sect;i++)
+	for(i=1;i<(*config).n_sect-1;i++)
+		// vecchia funzione che carica i boundary dei settori
+		//_get_bound((*config).bound_file,&((*sectors)[i]),i);
+		/* nuova funzione: dentro ogni file settore sono presenti i poligoni.
+		 * Considero i poligoni come settori singoli
+		 */
+		//_get_bound((*config).bound_file,&((*sectors)[i]),i);
+		get_Sector_bounds((*config).bound_file, sectors,i,&p);
+		//_get_bound((*config).bound_file,&((*sectors)[i],i,&p);
+	_get_ecac_bound((*config).bound_file,&((*sectors)[p]),i);
 	return 1;
 		
 }
@@ -490,19 +708,6 @@ int init_Sector(Aircraft_t **flight,int *Nflight,CONF_t	*config, SHOCK_t *shock,
 	
 	/*Get configuration parameter from file*/
 	get_configuration(config_file, config);
-
-	//char* rep_tail = "/abm_tactical/config/bound_latlon.dat";
-	//char * rep = malloc(snprintf(NULL, 0, "%s%s", (*config).main_dir, rep_tail) + 1);
-	//sprintf(rep, "%s%s", (*config).main_dir, rep_tail);
-	
-	
-	//get_boundary(config); /*Maybe Unuseless*/
-
-	//free(rep);
-	//free(config_file);
-
-	
-	//printf("Generate Point\n");
 	
 	/*Get temporary point from file
 	 * The generation is deprecated*/

@@ -89,6 +89,9 @@ int coord3(long double , long double , long double *, long double ,long double *
 
 int coord(long double ,long double *,long double *,long double *,long double );
 
+int coord_NoVel(long double ,long double *,long double *,long double * );
+
+
 /*Calculate angle between direction*/
 long double angle_direction(long double *,long double *,long double *);
 
@@ -112,6 +115,11 @@ int find_p_indx(long double **,int ,long double *);
 /*Evaluate the euclidean distanca in 2Dim*/
 long double euclid_dist2d(long double *,long double *);
 
+int eucl_coord(long double ,long double *,long double *,long double *,long double );
+
+int eucl_coord_NoVel(long double ,long double *,long double *,long double * );
+
+
 /*cheak se il punto e compreso nel segmento EUCLIDEAN*/
 int eucl_isbetween(long double *,long double *, long double *);
 
@@ -119,4 +127,5 @@ long double eucl_angle_direction(long double *,long double *, long double *);
 
 /*return second from the hour*/
 long double time_to_H(long double );
+
 #endif

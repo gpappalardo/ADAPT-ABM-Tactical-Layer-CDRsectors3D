@@ -6,7 +6,7 @@
 #define DT 3
 
 /*Number of temporary point*/
-#define NTMP 50000
+#define NTMP 500000
 
 /*Minimum value of F_LVL for nvp inside the sector (feets)*/
 #define F_LVL_MIN 240.
@@ -36,9 +36,15 @@ typedef struct {
 typedef struct {
 	
 	int n_side;
+	int n_name;
+	int n_pol;
 	long double **bound;
 	long double *multiple;
 	long double *constant;
+	int fl_begin;
+	int fl_end;
+	long double time_begin;
+	long double time_end;
 	
 } SECTOR_t;
 
@@ -83,6 +89,8 @@ int point_in_polygonOK(SECTOR_t *,long double *);
 
 int add_nvp_fromPos(Aircraft_t *,int ,int, CONF_t * );
 
-int add_fist_nvpInSec(Aircraft_t *,CONF_t *, SECTOR_t **);
+int add_fist_nvpInSec(Aircraft_t *,CONF_t *, SECTOR_t **,int);
+
+int add_n_nvp(Aircraft_t *,CONF_t *, SECTOR_t **,int,long double);
 
 #endif

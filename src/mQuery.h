@@ -70,6 +70,9 @@ typedef struct {
 	/* It is one if the aircraft is moved within the time-step*/
 	int touched;
 	
+	/* Allowed maximum delay in minutes */
+	int tw;
+
 }  Aircraft_t ;
 
 
@@ -155,12 +158,18 @@ typedef struct {
 	/*file for capacity*/
 	char *capacity_file;
 	
+	/* use external file for delays*/
+	int use_delay_file;
+	/*file for delays */
+	char *delay_file;
+
 	/*safe distance for neightboors flight*/
 	long double d_neigh;
 	
 	/*Capcity vector of n_sect+1 elements; 0 element is an infinity capacity sector*/
 	int *capacy;
 	int n_sect;
+	int n_polygon;
 	
 	/* Start and End datetime of the simulation*/
 	long double start_datetime;
@@ -180,6 +189,9 @@ typedef struct {
 	
 	/*boolean to activate rerouting module*/
 	int rer_active;
+	
+	/*Collision-Direct-FlightLevel Output File*/
+	char output_CDF[100];
 	
 } CONF_t ;
 
@@ -203,6 +215,8 @@ int get_configuration(char *,CONF_t *);
 int get_temp_shock(CONF_t *);
 
 int add_nsim_output(char *,char *,int);
+
+int collision_counter(char *,CONF_t *);
 
 /*Get the capacity for each sector*/
 int get_capacity(char *,CONF_t *);

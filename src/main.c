@@ -1,3 +1,7 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
 #include "mQuery.h"
 #include "mSector.h"
 #include "mUtility.h"
@@ -5,14 +9,10 @@
 #include "mTest.h"
 //#include <Python.h>
 
-#include<stdio.h>
-#include<stdlib.h>
-#include<time.h>
-
 // Entry for wrapper.
 int simulation(char **args){
 
-	srand(time(NULL));
+	srand(atoi(args[4]));
 	
 	setenv("TZ", "GMT", 1);
 	tzset();
@@ -39,7 +39,9 @@ int simulation(char **args){
 		/*Create a backup copy for the flight*/
 		copy_flight(Flight,Nflight,&flight);
 		
-
+		add_nsim_output(output_ABM_nsim,output_ABM,i);
+		collision_counter(output_ABM_nsim,&config);
+		
 		if( ABM(&flight,Nflight,config,shock,sectors) == 0){
 			/*if ABM does not solve the conflicts It run again the simulation*/
 			del_flight(&flight, Nflight, Flight);
@@ -49,7 +51,6 @@ int simulation(char **args){
 		
 		//printf("Sim %d\n",i+1);
 		/*create and save the ouptput file*/
-		add_nsim_output(output_ABM_nsim,output_ABM,i);
 		save_m3(flight,Nflight,Flight,output_ABM_nsim);
 		
 		del_flight(&flight, Nflight, Flight);
